@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Keystone 管理后台</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  <link rel="stylesheet" href="/layui/css/layui.css?v=2.13.6" media="all">
+  <link rel="stylesheet" href="/style/admin.css?v=2.13.6" media="all">
+</head>
+<body class="layui-layout-body">
+
+  <div id="LAY_app">
+    <div class="layui-layout layui-layout-admin">
+      <div class="layui-header">
+        <ul class="layui-nav layui-layout-left">
+          <li class="layui-nav-item layadmin-flexible" lay-unselect>
+            <a href="javascript:;" layadmin-event="flexible" title="侧边伸缩">
+              <i class="layui-icon layui-icon-shrink-right" id="LAY_app_flexible"></i>
+            </a>
+          </li>
+          <li class="layui-nav-item" lay-unselect>
+            <a href="javascript:;" layadmin-event="refresh" title="刷新">
+              <i class="layui-icon layui-icon-refresh-3"></i>
+            </a>
+          </li>
+        </ul>
+        <ul class="layui-nav layui-layout-right" lay-filter="layadmin-layout-right">
+          <li class="layui-nav-item layui-hide-xs" lay-unselect>
+            <a href="javascript:;" layadmin-event="theme">
+              <i class="layui-icon layui-icon-theme"></i>
+            </a>
+          </li>
+          <li class="layui-nav-item" lay-unselect>
+            <a href="javascript:;">
+              <cite>${username?html}</cite>
+            </a>
+            <dl class="layui-nav-child">
+              <dd><a lay-href="/user/info">基本资料</a></dd>
+              <hr>
+              <dd layadmin-event="logout" style="text-align: center;"><a>退出</a></dd>
+            </dl>
+          </li>
+          <li class="layui-nav-item layui-hide-xs" lay-unselect>
+            <a href="javascript:;" layadmin-event="about"><i class="layui-icon layui-icon-more-vertical"></i></a>
+          </li>
+        </ul>
+      </div>
+
+      <!-- 侧边菜单 -->
+      <div class="layui-side layui-side-menu">
+        <div class="layui-side-scroll">
+          <div class="layui-logo" lay-href="/home/main">
+            <span>Keystone</span>
+          </div>
+          <ul class="layui-nav layui-nav-tree" lay-shrink="all" id="LAY-system-side-menu" lay-filter="layadmin-system-side-menu">
+            <li data-name="console" class="layui-nav-item layui-this">
+              <a lay-href="/home/main" lay-tips="主页" lay-direction="2">
+                <i class="layui-icon layui-icon-home"></i>
+                <cite>主页</cite>
+              </a>
+            </li>
+            <li data-name="demo" class="layui-nav-item">
+              <a href="javascript:;" lay-tips="示例模块" lay-direction="2">
+                <i class="layui-icon layui-icon-component"></i>
+                <cite>示例模块</cite>
+              </a>
+              <dl class="layui-nav-child">
+                <dd data-name="console" data-permission="demo:list">
+                  <a lay-href="/demo/list">数据列表</a>
+                </dd>
+                <dd data-name="console" data-permission="demo:datasource">
+                  <a lay-href="/demo/datasource">多数据源演示</a>
+                </dd>
+              </dl>
+            </li>
+            <li data-name="system" class="layui-nav-item">
+              <a href="javascript:;" lay-tips="系统" lay-direction="2">
+                <i class="layui-icon layui-icon-set"></i>
+                <cite>系统</cite>
+              </a>
+              <dl class="layui-nav-child">
+                <dd data-name="console">
+                  <a lay-href="/druid/index.html">Druid 监控</a>
+                </dd>
+              </dl>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 页面标签 -->
+      <div class="layadmin-pagetabs" id="LAY_app_tabs">
+        <div class="layui-icon layadmin-tabs-control layui-icon-prev" layadmin-event="leftPage"></div>
+        <div class="layui-icon layadmin-tabs-control layui-icon-next" layadmin-event="rightPage"></div>
+        <div class="layui-icon layadmin-tabs-control layui-icon-down">
+          <ul class="layui-nav layadmin-tabs-select" lay-filter="layadmin-pagetabs-nav">
+            <li class="layui-nav-item" lay-unselect>
+              <a href="javascript:;"></a>
+              <dl class="layui-nav-child layui-anim-fadein">
+                <dd layadmin-event="closeThisTabs"><a href="javascript:;">关闭当前标签页</a></dd>
+                <dd layadmin-event="closeOtherTabs"><a href="javascript:;">关闭其它标签页</a></dd>
+                <dd layadmin-event="closeAllTabs"><a href="javascript:;">关闭全部标签页</a></dd>
+              </dl>
+            </li>
+          </ul>
+        </div>
+        <div class="layui-tab" lay-unauto lay-allowClose="true" lay-filter="layadmin-layout-tabs">
+          <ul class="layui-tab-title" id="LAY_app_tabsheader">
+            <li lay-id="home" lay-attr="home" class="layui-this"><i class="layui-icon layui-icon-home"></i></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 主体内容 -->
+      <div class="layui-body" id="LAY_app_body">
+        <div class="layadmin-tabsbody-item layui-show">
+          <iframe src="/home/main" frameborder="0" class="layadmin-iframe"></iframe>
+        </div>
+      </div>
+
+      <div class="layadmin-body-shade" layadmin-event="shade"></div>
+    </div>
+  </div>
+
+<script src="/layui/layui.js?v=2.13.6"></script>
+<script>
+  layui.config({
+    base: '/'
+    ,version: '2.13.6'
+  }).extend({
+    index: 'lib/index'
+  }).use('index');
+
+  // 菜单权限过滤：菜单权限接口返回后，隐藏无权限的菜单项（真正的安全由后端拦截器兜底）
+  (function () {
+    var URI = '/api/v1/menuPermission/current';
+    var SIDEBAR = document.getElementById('LAY-system-side-menu');
+
+    // 按权限过滤
+    function applyPermissionFilter(permissionSet) {
+      SIDEBAR.querySelectorAll('dd[data-permission]').forEach(function (dd) {
+        dd.style.display = permissionSet.has(dd.getAttribute('data-permission')) ? '' : 'none';
+      });
+      // 顶级分组：存在子菜单且子菜单没有可见项时整体隐藏
+      SIDEBAR.querySelectorAll(':scope > li.layui-nav-item').forEach(function (li) {
+        var childDl = li.querySelector(':scope > dl.layui-nav-child');
+        if (!childDl) return;
+        var anyVisible = false;
+        childDl.querySelectorAll(':scope > dd').forEach(function (dd) {
+          if (dd.style.display !== 'none') anyVisible = true;
+        });
+        if (!anyVisible) li.style.display = 'none';
+      });
+    }
+
+    function revealAll() {
+      SIDEBAR.querySelectorAll('dd[data-permission]').forEach(function (dd) { dd.style.display = ''; });
+    }
+
+    fetch(URI, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        var data = res && res.code === 0 ? (res.data || {}) : null;
+        if (!data || data.allPermitted) { revealAll(); return; }
+        applyPermissionFilter(new Set(data.permissions || []));
+      })
+      .catch(function () { revealAll(); });
+  })();
+</script>
+
+</body>
+</html>

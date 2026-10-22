@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Keystone · 示例表单</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <link rel="stylesheet" href="/layui/css/layui.css?v=2.13.6" media="all">
+    <link rel="stylesheet" href="/style/admin.css?v=2.13.6" media="all">
+</head>
+<body>
+
+<div class="layui-fluid">
+    <div class="layui-card">
+        <div class="layui-card-body">
+            <form class="layui-form" lay-filter="demo-form" style="max-width: 760px; margin: 0 auto;">
+                <input type="hidden" name="id" id="id">
+                <div class="layui-form-item">
+                    <label class="layui-form-label">编码</label>
+                    <div class="layui-input-block">
+                        <input type="text" name="code" id="code" lay-verify="required" placeholder="请输入编码" autocomplete="off" class="layui-input">
+                    </div>
+                </div>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">名称</label>
+                    <div class="layui-input-block">
+                        <input type="text" name="name" id="name" lay-verify="required" placeholder="请输入名称" autocomplete="off" class="layui-input">
+                    </div>
+                </div>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">状态</label>
+                    <div class="layui-input-block">
+                        <select name="status" id="status">
+                            <option value="1">启用</option>
+                            <option value="0">停用</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">备注</label>
+                    <div class="layui-input-block">
+                        <textarea name="remark" id="remark" placeholder="请输入备注" class="layui-textarea"></textarea>
+                    </div>
+                </div>
+                <div class="layui-form-item" style="margin-top: 20px; text-align: center;">
+                    <button class="layui-btn layui-btn-normal" lay-submit lay-filter="submit">立即提交</button>
+                    <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="/layui/layui.js?v=2.13.6"></script>
+<script>
+    layui.config({
+        base: '/'
+        ,version: '2.13.6'
+    }).extend({
+        index: 'lib/index'
+    }).use(['index', 'form'], function(){
+        var $ = layui.$
+            ,form = layui.form
+            ,layer = layui.layer;
+
+        form.render();
+
+        // 编辑回填：父页面通过 window.initData 注入待编辑数据
+        var initData = window.initData || null;
+        if (initData){
+            $('#id').val(initData.id || '');
+            $('#code').val(initData.code || '');
+            $('#name').val(initData.name || '');
+            $('#remark').val(initData.remark || '');
+            $('#status').val(initData.status != null ? initData.status : 1);
+            form.render('select');
+        }
+
+        form.on('submit(submit)', function(data){
+            var isEdit = !!data.field.id;
+            var url = isEdit ? '/api/v1/demo/update' : '/api/v1/demo/add';
+            var btn = $(this);
+            btn.prop('disabled', true);
+            $.ajax({
+                url: url,
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(data.field),
+                success: function(res){
+                    layer.msg(res.msg, {icon: res.code === 0 ? 1 : 2, time: 1500}, function(){
+                        if (res.code === 0){
+                            var index = parent.layer.getFrameIndex(window.name);
+                            parent.layer.close(index);
+                            parent.layui.table.reload('demo-table');
+                        } else {
+                            btn.prop('disabled', false);
+                        }
+                    });
+                },
+                error: function(){
+                    btn.prop('disabled', false);
+                    layer.alert('系统异常，请联系管理员');
+                }
+            });
+            return false;
+        });
+    });
+</script>
+</body>
+</html>

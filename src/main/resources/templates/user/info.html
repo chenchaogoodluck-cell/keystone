@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>个人主页</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <link rel="stylesheet" href="/layui/css/layui.css?v=2.13.6" media="all">
+    <link rel="stylesheet" href="/style/admin.css?v=2.13.6" media="all">
+    <link rel="stylesheet" href="/style/template.css" media="all">
+</head>
+<body>
+
+<div class="layui-fluid layadmin-homepage-fluid">
+    <div class="layui-row layui-col-space8">
+        <div class="layui-col-md2">
+            <div class="layadmin-homepage-panel layadmin-homepage-shadow">
+                <div class="layui-card text-center">
+                    <div class="layui-card-body">
+                        <div class="layadmin-homepage-pad-ver">
+                            <img class="layadmin-homepage-pad-img" src="/style/res/template/image.jpeg" width="96" height="96">
+                        </div>
+                        <h4 class="layadmin-homepage-font" id="name"></h4>
+                        <p class="layadmin-homepage-min-font" id="username"></p>
+                        <p class="layadmin-homepage-min-font" id="phoneNumber"></p>
+                        <h4 class="layadmin-homepage-min-font" id="hiredDate"></h4>
+                    </div>
+                </div>
+                <p class="layadmin-homepage-about">关于我</p>
+                <ul class="layadmin-homepage-list-group">
+                    <li class="list-group-item">
+                        <i class="layui-icon layui-icon-user"></i>
+                        <span style="word-wrap:break-word;" id="sex"></span>
+                    </li>
+                    <li class="list-group-item">
+                        <i class="layui-icon layui-icon-location"></i>
+                        <span style="word-wrap:break-word;" id="workPlace"></span>
+                    </li>
+                    <li class="list-group-item"><a href="javascript:;" class="color">
+                        <i class="layui-icon layui-icon-chat"></i>
+                        <span style="word-wrap:break-word;" id="email"></span></a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/layui/layui.js?v=2.13.6"></script>
+<script>
+    layui.config({
+        base: '/'
+        ,version: '2.13.6'
+    }).extend({
+        index: 'lib/index'
+    }).use(['index'], function (){
+        var $ = layui.jquery;
+        var layer = layui.layer;
+        $.ajax({
+            url: '/api/v1/user/getInfo',
+            type: 'GET',
+            dataType: 'json',
+            success: function(res) {
+                if (!res || res.code !== 0 || !res.data) {
+                    layer.msg((res && res.msg) || '获取用户信息失败', {icon: 5});
+                    return;
+                }
+                $('#name').text(res.data.name);
+                $('#username').text(res.data.username);
+                $('#phoneNumber').text(res.data.phoneNumber);
+                $('#email').text(res.data.email);
+                $('#sex').text(res.data.sex || '未设置');
+                $('#hiredDate').text(res.data.hiredDate);
+                $('#workPlace').text(res.data.workPlace || '暂无');
+            },
+            error: function() {
+                layer.closeAll('loading');
+                layer.msg('接口请求失败', {icon: 5});
+            }
+        });
+    });
+</script>
+</body>
+</html>

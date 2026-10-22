@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Keystone · 登录</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  <link rel="stylesheet" href="/layui/css/layui.css?v=2.13.6" media="all">
+  <link rel="stylesheet" href="/style/admin.css?v=2.13.6" media="all">
+  <link rel="stylesheet" href="/style/login.css" media="all">
+</head>
+<body>
+
+  <div class="layadmin-user-login layadmin-user-display-show" id="LAY-user-login" style="display: none;">
+    <div class="layadmin-user-login-main">
+      <div class="layadmin-user-login-box layadmin-user-login-header">
+        <h2>Keystone</h2>
+        <p>通用单体管理后台脚手架</p>
+      </div>
+      <div class="layadmin-user-login-box layadmin-user-login-body layui-form">
+        <div class="layui-form-item">
+          <label class="layadmin-user-login-icon layui-icon layui-icon-username" for="LAY-user-login-username"></label>
+          <input type="text" name="username" id="LAY-user-login-username" lay-verify="required" placeholder="用户名" class="layui-input">
+        </div>
+        <div class="layui-form-item">
+          <label class="layadmin-user-login-icon layui-icon layui-icon-password" for="LAY-user-login-password"></label>
+          <input type="password" name="password" id="LAY-user-login-password" lay-verify="required" placeholder="密码" class="layui-input">
+        </div>
+        <div class="layui-form-item" style="margin-bottom: 20px; color: #999; font-size: 12px;">
+          默认演示账号：admin / 123456（生产请修改 application.yml 的 keystone.security.users）
+        </div>
+        <div class="layui-form-item">
+          <button class="layui-btn layui-btn-fluid" lay-submit lay-filter="LAY-user-login-submit">登 入</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/layui/layui.js?v=2.13.6"></script>
+  <script>
+  layui.config({
+    base: ''
+    ,version: '2.13.6'
+  }).extend({
+    index: 'lib/index'
+  }).use(['index'], function(){
+    var $ = layui.$
+    ,setter = layui.setter
+    ,router = layui.router()
+    ,form = layui.form
+    ,layer = layui.layer;
+
+    form.render();
+
+    // 提交登录
+    form.on('submit(LAY-user-login-submit)', function(obj){
+      layui.admin.req({
+        url: '/api/v1/auth/login',
+        data: JSON.stringify(obj.field),
+        type: 'post',
+        contentType: 'application/json',
+        done: function(res){
+          var token = (res.data && res.data.token) || res.token;
+          if (!token) {
+            layer.msg('登录失败：接口未返回 token，请检查后端登录接口返回值', {icon: 2, time: 2000});
+            return;
+          }
+          // 写入本地缓存，后续请求自动放入请求头
+          layui.data(setter.tableName, { key: setter.request.tokenName, value: token });
+          var username = (res.data && res.data.username) || '';
+          layer.msg('登入成功', {icon: 1, time: 1000}, function(){
+            window.location = '/index/' + username;
+          });
+        },
+        fail: function(res){
+          layer.msg(res.msg || '登录失败', {icon: 2, time: 1000});
+        }
+      });
+    });
+  });
+  </script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+
+<!-- “关于”面板：展示当前登录用户的基本资料 -->
+
+<style>
+.layadmin-userinfo-list{margin: 0;}
+.layadmin-userinfo-list li{display: flex; padding: 9px 0; border-bottom: 1px dashed #e8e8e8; line-height: 20px;}
+.layadmin-userinfo-list li:last-child{border-bottom: none;}
+.layadmin-userinfo-list li .label{flex: 0 0 72px; color: #999;}
+.layadmin-userinfo-list li .value{flex: 1; word-break: break-all; color: #333;}
+</style>
+
+<div class="layui-card-header">基本资料</div>
+<div class="layui-card-body layadmin-about">
+  <ul class="layadmin-userinfo-list">
+    <li><span class="label">姓名</span><span class="value" id="layadmin-info-name">-</span></li>
+    <li><span class="label">工号</span><span class="value" id="layadmin-info-jobNumber">-</span></li>
+    <li><span class="label">登录名</span><span class="value" id="layadmin-info-loginName">-</span></li>
+    <li><span class="label">性别</span><span class="value" id="layadmin-info-sex">-</span></li>
+    <li><span class="label">职位</span><span class="value" id="layadmin-info-title">-</span></li>
+    <li><span class="label">手机号</span><span class="value" id="layadmin-info-phoneNumber">-</span></li>
+    <li><span class="label">邮箱</span><span class="value" id="layadmin-info-email">-</span></li>
+    <li><span class="label">工作地</span><span class="value" id="layadmin-info-workPlace">-</span></li>
+    <li><span class="label">入职时间</span><span class="value" id="layadmin-info-hiredDate">-</span></li>
+  </ul>
+</div>
+
+<script>
+layui.use(['jquery', 'util', 'layer'], function(){
+  var $ = layui.jquery, util = layui.util, layer = layui.layer;
+
+  var isEmpty = function(value){
+    return value === null || value === undefined || value === '';
+  };
+
+  var setText = function(selector, value){
+    $(selector).text(isEmpty(value) ? '-' : value);
+  };
+
+  //兼容后端返回时间戳或日期字符串两种情况
+  var formatDate = function(value){
+    if(isEmpty(value)) return '-';
+    try {
+      return util.toDateString(value, 'yyyy-MM-dd') || '-';
+    } catch(e) {
+      return value;
+    }
+  };
+
+  $.ajax({
+    url: '/api/v1/user/getInfo',
+    type: 'GET',
+    dataType: 'json',
+    success: function(res){
+      // 业务码非 0（如 500004 用户不存在、1001 未登录）时给出后端提示，
+      // 否则 res.data 为 null 会被下方兜成 {}，9 项资料全部静默显示 "-"，看不出接口其实是失败的
+      if(!res || res.code !== 0){
+        layer.msg((res && res.msg) || '获取基本资料失败', {icon: 5});
+        return;
+      }
+      var d = (res && res.data) || {};
+      setText('#layadmin-info-name', d.name);
+      setText('#layadmin-info-jobNumber', d.jobNumber);
+      setText('#layadmin-info-loginName', d.loginName);
+      setText('#layadmin-info-sex', d.sex);
+      setText('#layadmin-info-title', d.title);
+      setText('#layadmin-info-phoneNumber', d.phoneNumber);
+      setText('#layadmin-info-email', d.email);
+      setText('#layadmin-info-workPlace', d.workPlace);
+      $('#layadmin-info-hiredDate').text(formatDate(d.hiredDate));
+    },
+    error: function(xhr, status){
+      layer.msg('获取基本资料失败：' + status, {icon: 5});
+    }
+  });
+});
+</script>

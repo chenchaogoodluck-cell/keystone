@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>没有权限</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  <link rel="stylesheet" href="/layui/css/layui.css?v=2.13.6" media="all">
+  <link rel="stylesheet" href="/style/admin.css?v=2.13.6" media="all">
+</head>
+<body>
+
+<div class="layui-fluid">
+  <div class="layadmin-tips">
+    <i class="layui-icon" face>&#xe672;</i>
+    <div class="layui-text" style="font-size: 20px;">没有权限访问该页面</div>
+
+    <#if permissionName?? && permissionName?has_content>
+      <div class="layui-text" style="font-size: 14px; color: #999; margin-top: 10px;">
+        菜单：${permissionName}
+      </div>
+    </#if>
+  </div>
+</div>
+
+  <script src="/layui/layui.js?v=2.13.6"></script>
+  <script>
+  layui.config({ base: '/', version: '2.13.6' }).extend({ index: 'lib/index' }).use(['index']);
+  </script>
+</body>
+</html>

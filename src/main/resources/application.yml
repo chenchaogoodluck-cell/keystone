@@ -1,0 +1,63 @@
+server:
+  port: 9110
+  tomcat:
+    maxConnections: 200
+
+spring:
+  profiles:
+    active: ${PROFILE:local}
+  servlet:
+    multipart:
+      maxFileSize: 2048MB
+      maxRequestSize: 1024MB
+  freemarker:
+    allow-request-override: false
+    cache: false
+    check-template-location: true
+    expose-request-attributes: false
+    expose-session-attributes: false
+    expose-spring-macro-helper: false
+    # 模板文件使用 .html 后缀
+    suffix: .html
+    charset: UTF-8
+    content-type: text/html
+    # 页面模板根目录
+    template-loader-path: classpath:/templates/
+    # 处理页面空值，自动转为""
+    settings:
+      classic_compatible: true
+  web:
+    resources:
+      static-locations: classpath:/static/
+
+# =====================================================================
+# 应用级配置
+# =====================================================================
+app:
+  id: keystone
+  # JWT 签名密钥：服务器端机密（签发/校验登录 token）。任意环境都必须配置：
+  #   测试/生产必须用环境变量 JWT_SECRET 注入强随机值；本地开发见 application-local.yml。
+  #   未配置时应用启动直接失败（fail-fast），确保不存在公开默认密钥。
+  jwt:
+    secret: ${JWT_SECRET:}
+    # 登录 token 会写入 HttpOnly Cookie（解决 iframe 弹层等页面跳转无法携带请求头的问题）。
+    # 是否给 Cookie 加 Secure 标志（仅 HTTPS 生效）：生产设 true（环境变量 COOKIE_SECURE），
+    # 本地/内网 http 调试保持 false，否则浏览器不会发送 Secure Cookie 导致页面权限失效
+    cookie-secure: ${COOKIE_SECURE:false}
+
+# =====================================================================
+# Keystone 安全配置
+# =====================================================================
+keystone:
+  security:
+    # 内置管理员名单：名单内用户始终拥有全部页面访问权限（可覆盖）。
+    # 单机演示默认账号 admin/123456 来自下方 users 配置。
+    admin-users:
+      - admin
+    # 可登录账号列表：username=password，多个用英文逗号分隔。
+    # 生产请改为查询用户表/AD/LDAP（见 AuthService 注释的扩展点）。
+    users: ${KEYSTONE_USERS:admin=123456}
+    # 菜单页面权限严格模式：默认 false。
+    #   true  : 未标注 @MenuPermission 的页面放行；标注了且用户非内置管理员 → 拦截到无权限页。
+    #   false : 任何已登录用户均可访问已标注页面（注解仅用于前端菜单渲染与未来扩展）。
+    menu-auth-strict: ${KEYSTONE_MENU_STRICT:false}

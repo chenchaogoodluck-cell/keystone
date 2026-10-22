@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Keystone · 多数据源演示</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <link rel="stylesheet" href="/layui/css/layui.css?v=2.13.6" media="all">
+    <link rel="stylesheet" href="/style/admin.css?v=2.13.6" media="all">
+</head>
+<body>
+
+<div class="layui-fluid">
+    <div class="layui-card">
+        <div class="layui-card-header layui-bg-green" style="color:#fff;">
+            ① 多数据源动态注册 · 演示 —— 一次请求切换主数据源与动态注册数据源
+        </div>
+        <div class="layui-card-body">
+            <blockquote class="layui-elem-quote layui-quote-nm" style="line-height:1.9;">
+                <ul>
+                    <li>主数据源：<code>master</code> → <code>keystone.sys_demo_item</code>（未标 <code>@DS</code>，走 dynamic 默认源）</li>
+                    <li>第二数据源：<code>localDemo</code> → <code>keystone_demo.sys_demo_tag</code>（由
+                        <code>MultiDataSourceRegister</code> 启动时按「环境×业务域」动态注册，service 用 <code>@DS</code> 注解切换）</li>
+                    <li>点击「执行切换演示」，后端在一次请求内先后查询两个数据源。</li>
+                </ul>
+            </blockquote>
+            <div style="margin: 12px 0;">
+                <button id="run" class="layui-btn layui-btn-normal">
+                    <i class="layui-icon layui-icon-play"></i> 执行切换演示
+                </button>
+                <span id="dsInfo" style="color:#999;margin-left:10px;"></span>
+            </div>
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md6">
+                    <div class="layui-card">
+                        <div class="layui-card-header">主数据源 master（sys_demo_item）</div>
+                        <div class="layui-card-body"><table id="t1" lay-filter="t1"></table></div>
+                    </div>
+                </div>
+                <div class="layui-col-md6">
+                    <div class="layui-card">
+                        <div class="layui-card-header">第二数据源 localDemo（sys_demo_tag）</div>
+                        <div class="layui-card-body"><table id="t2" lay-filter="t2"></table></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="layui-card">
+        <div class="layui-card-header layui-bg-blue" style="color:#fff;">
+            ② 环境策略工厂 · 演示 —— 前端传 env，自动路由到对应环境数据源 Service
+        </div>
+        <div class="layui-card-body">
+            <blockquote class="layui-elem-quote layui-quote-nm" style="line-height:1.9;">
+                <ul>
+                    <li>各环境 Service 用 <code>@EnvType</code> 声明环境、<code>@DS</code> 指定数据源（如 <code>LocalDemoTagService</code> → localDemo、<code>DevDemoTagService</code> → devDemo）。</li>
+                    <li>门面 <code>DemoTagStrategyService</code> 注入 <code>List&lt;DemoTagEnvService&gt;</code>，按 <code>EnvStrategy::envType</code> 建 Map，一行路由，无 switch-case。</li>
+                </ul>
+            </blockquote>
+            <div style="margin: 12px 0;">
+                <select id="envSelect" style="width:200px;height:38px;border:1px solid #e6e6e6;border-radius:2px;padding:0 10px;">
+                </select>
+                <button id="runEnv" class="layui-btn layui-bg-blue">
+                    <i class="layui-icon layui-icon-play"></i> 按环境查询
+                </button>
+                <span id="envInfo" style="color:#999;margin-left:10px;"></span>
+            </div>
+            <div class="layui-card">
+                <div class="layui-card-header" id="envTableTitle">请选择环境</div>
+                <div class="layui-card-body"><table id="t3" lay-filter="t3"></table></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/layui/layui.js?v=2.13.6"></script>
+<script>
+    layui.config({ base: '/', version: '2.13.6' }).extend({ index: 'lib/index' }).use(['index', 'table'], function(){
+        var $ = layui.$, table = layui.table, layer = layui.layer;
+
+        // ① 多数据源动态注册
+        $('#run').on('click', function(){
+            $('#run').prop('disabled', true);
+            $('#dsInfo').text('请求中…');
+            $.get('/api/v1/demo/datasource', function(res){
+                if (res.code !== 0 || !res.data){
+                    layer.msg(res.msg || '查询失败，请确认已建好两个库并配置数据源', {icon: 2});
+                    $('#run').prop('disabled', false);
+                    return;
+                }
+                var data = res.data;
+                $('#dsInfo').text('演示完成：master 返回 ' + data.masterAfter + ' 条，第二数据源 [' + data.demoDsName + '] 返回 ' + data.demoTags.length + ' 条');
+
+                table.render({ elem: '#t1', data: data.masterItems, page: false, cols: [[
+                    {field: 'id', width: 80, title: 'ID'},
+                    {field: 'code', title: '编码'},
+                    {field: 'name', title: '名称'},
+                    {field: 'updateTime', title: '更新时间'}
+                ]]});
+                table.render({ elem: '#t2', data: data.demoTags, page: false, cols: [[
+                    {field: 'id', width: 80, title: 'ID'},
+                    {field: 'tagName', title: '标签名'},
+                    {field: 'remark', title: '备注'}
+                ]]});
+                $('#run').prop('disabled', false);
+            }, 'json').fail(function(){
+                layer.msg('请求失败', {icon: 2});
+                $('#run').prop('disabled', false);
+            });
+        });
+
+        // ② 环境策略工厂：先取可用环境列表渲染下拉
+        function loadEnvs(){
+            $.get('/api/v1/demo/env', { env: 1 }, function(res){
+                if (res.code !== 0 || !res.data){ return; }
+                var opts = '';
+                $.each(res.data.availableEnvs, function(env, label){
+                    opts += '<option value="' + env + '">' + label + '（env=' + env + '）</option>';
+                });
+                $('#envSelect').html(opts);
+            }, 'json');
+        }
+        $('#runEnv').on('click', function(){
+            var env = $('#envSelect').val();
+            $('#envInfo').text('请求中…');
+            $.get('/api/v1/demo/env', { env: env }, function(res){
+                if (res.code !== 0 || !res.data){ layer.msg(res.msg || '查询失败', {icon: 2}); return; }
+                var data = res.data;
+                $('#envInfo').text('已路由到数据源 [' + data.selectedDs + ']，返回 ' + data.tags.length + ' 条');
+                $('#envTableTitle').text('数据源 ' + data.selectedDs + '（sys_demo_tag）');
+                table.render({ elem: '#t3', data: data.tags, page: false, cols: [[
+                    {field: 'id', width: 80, title: 'ID'},
+                    {field: 'tagName', title: '标签名'},
+                    {field: 'remark', title: '备注'}
+                ]]});
+            }, 'json').fail(function(){
+                layer.msg('请求失败', {icon: 2});
+            });
+        });
+        loadEnvs();
+    });
+</script>
+</body>
+</html>

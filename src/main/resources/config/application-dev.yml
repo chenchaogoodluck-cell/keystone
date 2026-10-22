@@ -1,0 +1,15 @@
+# 开发环境示例配置：覆盖 application-local.yml 缺省的连接参数。
+# 请将敏感配置改为环境变量注入，勿在仓库提交真实密码。
+logging:
+  config: classpath:logback-local.xml
+
+spring:
+  datasource:
+    url: ${KEYSTONE_DB_URL}
+    username: ${KEYSTONE_DB_USER}
+    password: ${KEYSTONE_DB_PWD}
+  redis:
+    host: ${KEYSTONE_REDIS_HOST}
+    port: ${KEYSTONE_REDIS_PORT}
+    password: ${KEYSTONE_REDIS_PWD}
+    database: ${KEYSTONE_REDIS_DB:0}

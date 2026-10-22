@@ -1,0 +1,75 @@
+logging:
+  config: classpath:logback-local.xml
+
+# 本地开发 JWT 签名密钥（仅 local profile 加载；未设置环境变量 JWT_SECRET 时使用本开发密钥）
+# 该密钥仅限本地开发使用，测试/生产环境必须通过环境变量 JWT_SECRET 注入独立强随机密钥
+app:
+  jwt:
+    secret: ${JWT_SECRET:local-dev-jwt-secret-0d8a7e6b5c4f3e2d1b0a9c8d7e6f5a4b3c}
+
+spring:
+  datasource:
+    # ===== 动态多数据源（dynamic-datasource）=====
+    # primary 指定默认数据源；MultiDataSourceRegister 启动时按「环境 × 业务域」动态注册其余数据源
+    dynamic:
+      primary: master # 默认主数据源
+      strict: true    # 严格匹配：使用未注册的数据源名时抛异常，而不是静默回退主源
+      datasource:
+        master:
+          url: ${KEYSTONE_DB_URL:jdbc:mysql://127.0.0.1:3306/keystone?useSSL=false&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai}
+          username: ${KEYSTONE_DB_USER:root}
+          password: ${KEYSTONE_DB_PWD:123456}
+          driver-class-name: com.mysql.cj.jdbc.Driver
+    druid:
+      stat-view-servlet:
+        enabled: true
+        allow: 127.0.0.1,0.0.0.0/0
+        reset-enable: false
+        url-pattern: /druid/*
+      web-stat-filter:
+        enabled: true
+        exclusions: "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*"
+        url-pattern: /*
+        session-stat-enable: true
+        profile-enable: true
+  redis:
+    host: ${KEYSTONE_REDIS_HOST:127.0.0.1}
+    port: ${KEYSTONE_REDIS_PORT:6379}
+    password: ${KEYSTONE_REDIS_PWD:}
+    database: ${KEYSTONE_REDIS_DB:0}
+    timeout: 5000
+    lettuce:
+      pool:
+        max-active: 100
+        max-wait: 2s
+        min-idle: 10
+        max-idle: 50
+
+# ===== 动态数据源：环境 × 业务域 =====
+# 启动时由 MultiDataSourceRegister 按笛卡尔积注册数据源，数据源名 = 环境名 + 业务域后缀。
+# 例如本配置会注册：local+Demo = localDemo。
+keystone:
+  datasource:
+    url-suffix: "allowMultiQueries=true&serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=UTF-8&autoReconnect=true"
+    # 环境连接参数：环境名 -> 连接信息
+    # 本地演示 local 与 dev 同指一个库（仅演示「按 env 选 service」逻辑）；
+    # 需要真实多环境隔离时，给 dev 单独配一个库即可（如 keystone_demo_dev）。
+    environments:
+      local:
+        host: ${KEYSTONE_DEMO_DB_HOST:127.0.0.1}
+        port: ${KEYSTONE_DEMO_DB_PORT:3306}
+        username: ${KEYSTONE_DEMO_DB_USER:root}
+        password: ${KEYSTONE_DEMO_DB_PWD:123456}
+      dev:
+        host: ${KEYSTONE_DEMO_DB_HOST:127.0.0.1}
+        port: ${KEYSTONE_DEMO_DB_PORT:3306}
+        username: ${KEYSTONE_DEMO_DB_USER:root}
+        password: ${KEYSTONE_DEMO_DB_PWD:123456}
+    # 业务域库名：业务域后缀 -> 数据库名
+    databases:
+      Demo: keystone_demo
+
+# MyBatis-Plus 日志（本地开启 SQL 输出，便于开发调试）
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl

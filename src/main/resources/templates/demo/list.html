@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Keystone · 示例列表</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <link rel="stylesheet" href="/layui/css/layui.css?v=2.13.6" media="all">
+    <link rel="stylesheet" href="/style/admin.css?v=2.13.6" media="all">
+</head>
+<body>
+
+<div class="layui-fluid">
+    <div class="layui-card">
+        <div class="layui-form layui-card-header layuiadmin-card-header-auto" lay-filter="search-form">
+            <div class="layui-form-item">
+                <div class="layui-inline">
+                    <label class="layui-form-label">名称</label>
+                    <div class="layui-input-inline" style="width: 200px;">
+                        <input type="text" id="name" name="name" placeholder="请输入名称" autocomplete="off" class="layui-input">
+                    </div>
+                </div>
+                <div class="layui-inline">
+                    <label class="layui-form-label">状态</label>
+                    <div class="layui-input-inline" style="width: 120px;">
+                        <select name="status" id="status">
+                            <option value="">全部</option>
+                            <option value="1">启用</option>
+                            <option value="0">停用</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="layui-inline">
+                    <button class="layui-btn" lay-submit lay-filter="search">查询</button>
+                    <button class="layui-btn layui-btn-primary" id="reset">重置</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="layui-card-body">
+            <div style="padding-bottom: 10px;">
+                <button id="add" class="layui-btn layui-btn-normal" data-type="add">添加</button>
+            </div>
+            <table id="demo-table" lay-filter="demo-table"></table>
+        </div>
+    </div>
+</div>
+
+<script type="text/html" id="toolbar">
+    <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+</script>
+<script type="text/html" id="statusTpl">
+    {{#  if(d.status == 1){ }}
+        <span style="color:#5FB878;">启用</span>
+    {{#  } else { }}
+        <span style="color:#FF5722;">停用</span>
+    {{#  } }}
+</script>
+
+<script src="/layui/layui.js?v=2.13.6"></script>
+<script>
+    layui.config({
+        base: '/'
+        ,version: '2.13.6'
+    }).extend({
+        index: 'lib/index'
+    }).use(['index', 'table','form'], function(){
+        var $ = layui.$
+            ,form = layui.form
+            ,table = layui.table
+            ,layer = layui.layer;
+
+        // 渲染表格
+        table.render({
+            elem: '#demo-table',
+            url: '/api/v1/demo/page',
+            toolbar: false,
+            defaultToolbar: ['filter', 'exports', 'print'],
+            cols: [[
+                {field: 'id', width: 90, title: 'ID', sort: true},
+                {field: 'code', minWidth: 140, title: '编码'},
+                {field: 'name', minWidth: 160, title: '名称'},
+                {field: 'status', width: 90, title: '状态', templet: '#statusTpl', align: 'center'},
+                {field: 'remark', minWidth: 160, title: '备注'},
+                {field: 'updateTime', minWidth: 170, title: '更新时间'},
+                {title: '操作', width: 150, toolbar: '#toolbar', fixed: 'right'}
+            ]],
+            page: true,
+            limit: 15,
+            limits: [10, 15, 20, 50, 100],
+            height: 'full-200',
+            cellMinWidth: 80,
+            parseData: function(res){
+                return { code: res.code, msg: res.msg, count: res.count, data: res.data };
+            }
+        });
+
+        // 查询
+        form.on('submit(search)', function(data){
+            table.reload('demo-table', { page: { curr: 1 }, where: data.field });
+        });
+        // 重置
+        $('#reset').on('click', function(){
+            $('#name').val('');
+            $('#status').val('');
+            form.render('select');
+            table.reload('demo-table', { page: { curr: 1 }, where: {} });
+        });
+
+        // 新增 / 编辑（通过 iframe 弹窗加载 /demo/add）
+        function openForm(title, id){
+            layer.open({
+                title: title,
+                type: 2,
+                shade: 0.2,
+                maxmin: true,
+                shadeClose: false,
+                area: ['40%', '50%'],
+                content: '/demo/add' + (id ? '?id=' + id : ''),
+                success: function(layero){
+                    if (id){
+                        var iframeWin = layero.find('iframe')[0].contentWindow;
+                        // 编辑时由 add 页自行按 ?id 拉取数据或由调用方注入；这里通过接口查询后注入
+                        $.get('/api/v1/demo/page', { name: '' }, function(){});
+                    }
+                }
+            });
+        }
+        $('#add').on('click', function(){ openForm('添加'); });
+
+        // 表格行操作
+        table.on('tool(demo-table)', function(obj){
+            var data = obj.data;
+            if (obj.event === 'edit'){
+                layer.open({
+                    title: '编辑',
+                    type: 2,
+                    shade: 0.2,
+                    maxmin: true,
+                    shadeClose: false,
+                    area: ['40%', '50%'],
+                    content: '/demo/add?id=' + data.id,
+                    success: function(layero){
+                        var iframeWin = layero.find('iframe')[0].contentWindow;
+                        iframeWin.initData = data; // 注入待编辑数据
+                    }
+                });
+            } else if (obj.event === 'del'){
+                layer.confirm('确定删除该条数据吗？', function(index){
+                    layer.close(index);
+                    $.get('/api/v1/demo/delete', { ids: data.id }, function(res){
+                        layer.msg(res.msg, {icon: res.code === 0 ? 1 : 2, time: 1500});
+                        if (res.code === 0) table.reload('demo-table');
+                    });
+                });
+            }
+        });
+    });
+</script>
+</body>
+</html>
