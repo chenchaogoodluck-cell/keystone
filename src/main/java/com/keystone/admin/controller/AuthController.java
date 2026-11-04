@@ -8,6 +8,7 @@ import com.keystone.admin.web.ApiResultUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,7 +34,7 @@ public class AuthController {
     @Value("${app.jwt.cookie-secure:false}")
     private boolean cookieSecure;
 
-    @RequestMapping("/login")
+    @PostMapping("/login")
     public ApiResult<Map<String, String>> login(@Validated @RequestBody LoginReqVo reqVo, HttpServletResponse response) {
         Map<String, String> result = authService.login(reqVo);
         // 登录后把 token 写入 HttpOnly Cookie：iframe 弹层 / 内部跳转等无法携带请求头时由服务端从 Cookie 读取

@@ -85,6 +85,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-cache</artifactId>
         </dependency>
+        <!-- Lettuce 连接池生效依赖：spring.data.redis.lettuce.pool.* 需 + commons-pool2 -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-pool2</artifactId>
+        </dependency>
 
         <!-- MyBatis -->
         <dependency>
@@ -172,9 +177,27 @@
     <build>
         <defaultGoal>compile</defaultGoal>
         <resources>
+            <!--配置类文件开启过滤（供 @profileActive@ 等占位符替换）-->
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
+                <includes>
+                    <include>**/*.yml</include>
+                    <include>**/*.yaml</include>
+                    <include>**/*.properties</include>
+                    <include>**/*.xml</include>
+                </includes>
+            </resource>
+            <!--其余资源（图片/字体/JS/HTML 模板等）一律不过滤，原样拷贝，避免二进制被破坏-->
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <excludes>
+                    <exclude>**/*.yml</exclude>
+                    <exclude>**/*.yaml</exclude>
+                    <exclude>**/*.properties</exclude>
+                    <exclude>**/*.xml</exclude>
+                </excludes>
             </resource>
         </resources>
         <plugins>

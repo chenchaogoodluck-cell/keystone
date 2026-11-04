@@ -1,6 +1,6 @@
 package com.keystone.admin.config;
 
-import com.auth0.jwt.interfaces.DecodedJWT;
+import com.alibaba.fastjson.JSONObject;
 import com.keystone.admin.annotation.MenuPermission;
 import com.keystone.admin.utils.JwtUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +9,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 
 /**
  * 菜单页面权限拦截器（注解驱动）
@@ -53,6 +54,12 @@ public class MenuPermissionInterceptor implements HandlerInterceptor {
         String username;
         try {
             username = JwtUtils.parseAndVerifyToken(token).getAudience().get(0);
+            // 登出后 token 会被移除出签发缓存，此处核对实现真正失效
+            if (!JwtUtils.isTokenCurrent(username, token)) {
+                log.info("Keystone 菜单权限校验：token 已非有效登录态（曾登出或被替代），重定向登录页，uri={}", request.getRequestURI());
+                response.sendRedirect("/login");
+                return false;
+            }
         } catch (Exception e) {
             log.warn("Keystone 菜单权限校验：token 无效或已过期，重定向登录页，uri={}", request.getRequestURI());
             response.sendRedirect("/login");
@@ -70,11 +77,28 @@ public class MenuPermissionInterceptor implements HandlerInterceptor {
         }
 
         // 6. 严格模式：非管理员无权访问
-        log.warn("Keystone 菜单权限校验（严格模式）：用户 [{}] 无权访问页面 [{}]({})，uri={}",
+        log.warn("Keystone 菜单权限校验（严格模式）：用户 [{}] 无权访问 [{}]({})，uri={}",
                 username, menuPermission.value(), menuPermission.name(), request.getRequestURI());
+        // 数据接口（/api/**）返回统一 JSON；页面请求 forward 到无权限页
+        if (request.getRequestURI().startsWith("/api/")) {
+            writeForbidden(response);
+            return false;
+        }
         request.setAttribute("permission", menuPermission.value());
         request.setAttribute("permissionName", menuPermission.name());
         request.getRequestDispatcher("/permission/denied").forward(request, response);
         return false;
+    }
+
+    /** 数据接口无权限：返回统一 JSON（code=4010） */
+    private void writeForbidden(HttpServletResponse response) throws IOException {
+        if (response.isCommitted()) {
+            return;
+        }
+        response.setContentType("application/json;charset=UTF-8");
+        JSONObject json = new JSONObject();
+        json.put("code", 4010);
+        json.put("msg", "用户无权限");
+        response.getWriter().write(json.toJSONString());
     }
 }

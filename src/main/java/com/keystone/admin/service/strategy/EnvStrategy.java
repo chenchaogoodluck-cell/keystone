@@ -1,6 +1,7 @@
 package com.keystone.admin.service.strategy;
 
 import com.keystone.admin.annotation.EnvType;
+import org.springframework.core.annotation.AnnotationUtils;
 
 import java.lang.annotation.Annotation;
 
@@ -19,7 +20,8 @@ public interface EnvStrategy {
      * @return 环境类型值，见 {@link com.keystone.admin.constant.EnvConstants}
      */
     default int envType() {
-        Annotation annotation = getClass().getAnnotation(EnvType.class);
+        // 用 AnnotationUtils 穿透 CGLIB/JDK 代理：直接 getClass().getAnnotation() 在代理类上取不到注解
+        Annotation annotation = AnnotationUtils.findAnnotation(getClass(), EnvType.class);
         if (annotation == null) {
             throw new IllegalStateException(getClass().getName() + " 缺少 @EnvType 注解，无法注册环境策略");
         }

@@ -43,6 +43,11 @@ public class MultiDataSourceRegister {
                     DataSourceNames.MASTER);
             return;
         }
+        if (!(dynamicDataSource instanceof DynamicRoutingDataSource)) {
+            throw new IllegalStateException("Keystone 动态数据源注册失败：dataSource 实际类型为 "
+                    + dynamicDataSource.getClass().getName()
+                    + "，请确认 dynamic-datasource-spring-boot-starter 优先于 druid-spring-boot-starter 生效");
+        }
         DynamicRoutingDataSource routingDataSource = (DynamicRoutingDataSource) dynamicDataSource;
         int count = 0;
         for (String bizSuffix : properties.getDatabases().keySet()) {

@@ -2,6 +2,8 @@
 <configuration>
     <!--日志的字符编码-->
     <property name="log.charset" value="UTF-8"/>
+    <!--日志文件目录：可用环境变量 LOG_PATH 覆盖，默认 ./logs-->
+    <property name="log.path" value="${LOG_PATH:-logs}"/>
 
     <!--控制台日志输出配置，可以匹配色彩和高亮-->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
@@ -11,12 +13,29 @@
         </encoder>
     </appender>
 
+    <!--文件日志：按天滚动保留 30 天。非 local 环境没有控制台，必须落盘，否则日志无处可查-->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${log.path}/keystone.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${log.path}/keystone.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [T=%thread] %-5level %logger{50} - %m%n</pattern>
+            <charset>${log.charset}</charset>
+        </encoder>
+    </appender>
+
     <!-- spring日志 -->
     <logger name="org.springframework.web" level="INFO" />
 
     <root level="info">
+        <!--appender 若全部包在 springProfile 内，则 dev/fat/pro 环境没有任何 appender，日志静默丢失-->
         <springProfile name="local">
             <appender-ref ref="STDOUT"/>
+        </springProfile>
+        <springProfile name="!local">
+            <appender-ref ref="FILE"/>
         </springProfile>
     </root>
 </configuration>

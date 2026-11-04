@@ -5,10 +5,13 @@ import com.keystone.admin.utils.JwtUtils;
 import com.keystone.admin.web.ApiResult;
 import com.keystone.admin.web.ApiResultUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
+import javax.servlet.http.HttpServletResponse;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -23,11 +26,18 @@ public class UserController {
     @Resource
     private JwtUtils jwtUtils;
 
-    /** 退出登录：删除缓存的 token */
-    @RequestMapping("/logout")
-    public ApiResult<Void> logout() {
+    @Value("${app.jwt.cookie-secure:false}")
+    private boolean cookieSecure;
+
+    /** 退出登录：删除缓存的 token，并让 HttpOnly Cookie 立即过期（否则旧 Cookie 会残留至 30 天 Max-Age） */
+    @PostMapping("/logout")
+    public ApiResult<Void> logout(HttpServletResponse response) {
         String username = CurrentUserHolder.getName();
         jwtUtils.invalidateToken(username);
+        // 写回同名空值 + Max-Age=0 的 Cookie，指示浏览器立即删除，避免登出后残留失效 token
+        response.addHeader("Set-Cookie",
+                JwtUtils.TOKEN_COOKIE + "=; Path=/; Max-Age=0; HttpOnly"
+                        + (cookieSecure ? "; Secure" : "") + "; SameSite=Lax");
         log.info("Keystone 用户退出登录：username={}", username);
         return ApiResultUtils.buildResult();
     }

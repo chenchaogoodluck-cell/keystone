@@ -34,6 +34,12 @@ public class MyHandlerInterceptor implements HandlerInterceptor {
         try {
             DecodedJWT jwt = JwtUtils.parseAndVerifyToken(token);
             String userName = jwt.getAudience().get(0);
+            // 登出后该 token 会从签发缓存移除；此处再核对，实现「log-out 后真正失效」
+            if (!JwtUtils.isTokenCurrent(userName, token)) {
+                log.info("Keystone token 已非有效登录态（曾登出或被替代），访问地址：{}", request.getRequestURI());
+                writeUnLogin(response);
+                return false;
+            }
             CurrentUserDto userDto = new CurrentUserDto();
             userDto.setId(userName);
             userDto.setName(userName);
@@ -41,6 +47,11 @@ public class MyHandlerInterceptor implements HandlerInterceptor {
             return true;
         } catch (BusinessException e) {
             log.warn("Keystone token 无效或已过期，访问地址：{}，原因：{}", request.getRequestURI(), e.getMessage());
+            writeUnLogin(response);
+            return false;
+        } catch (Exception e) {
+            // audience 为空 / Redis 不可用等非预期异常同样按未登录处理，避免被全局异常转成 5000 导致前端不跳登录
+            log.warn("Keystone 鉴权处理异常，访问地址：{}", request.getRequestURI(), e);
             writeUnLogin(response);
             return false;
         }

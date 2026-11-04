@@ -13,7 +13,6 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.servlet.NoHandlerFoundException;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -25,13 +24,8 @@ import java.util.List;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    /** URL 不存在 */
-    @ExceptionHandler(value = {NoHandlerFoundException.class})
-    public <T> ApiResult<T> noHandlerFoundException(HttpServletRequest request, NoHandlerFoundException ex) {
-        ApiResult<T> result = new ApiResult<>(ErrorCode.HTTP_URL_NO_HANDLER_ERROR);
-        printErrorLog(request, ex);
-        return result;
-    }
+    /* URL 不存在：由 NotFoundApiController 的 /api/** 兜底统一返回 4003（此处不再处理
+     * NoHandlerFoundException，避免依赖 throw-exception-if-no-handler-found 开关的不确定性）。 */
 
     /** 通用异常 */
     @ExceptionHandler(value = Exception.class)

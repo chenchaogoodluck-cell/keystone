@@ -2,6 +2,7 @@ package com.keystone.admin.controller;
 
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
+import com.keystone.admin.annotation.MenuPermission;
 import com.keystone.admin.entity.DemoItem;
 import com.keystone.admin.entity.SysDemoTag;
 import com.keystone.admin.exception.BusinessException;
@@ -13,12 +14,14 @@ import com.keystone.admin.web.ApiPageResult;
 import com.keystone.admin.web.ApiResult;
 import com.keystone.admin.web.ApiResultUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +35,9 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/demo")
 public class DemoController {
+
+    /** 分页单次最大条数：防止前端传超大 limit 一次拉全表打垮 DB/内存 */
+    private static final int MAX_PAGE_SIZE = 200;
 
     @Resource
     private DemoItemService demoItemService;
@@ -52,20 +58,40 @@ public class DemoController {
                                         @RequestParam(defaultValue = "15") int limit,
                                         @RequestParam(required = false) String name,
                                         @RequestParam(required = false) Integer status) {
+        // 收敛分页参数：非法值回退到安全范围
+        if (page < 1) {
+            page = 1;
+        }
+        if (limit < 1 || limit > MAX_PAGE_SIZE) {
+            limit = MAX_PAGE_SIZE;
+        }
         PageHelper.startPage(page, limit);
-        List<DemoItem> list = demoItemService.pageQuery(name, status, null);
-        return ApiResultUtils.buildPageResult((Page<?>) list, list);
+        try {
+            List<DemoItem> list = demoItemService.pageQuery(name, status, null);
+            if (!(list instanceof Page)) {
+                throw new BusinessException(5000, "分页查询未返回 Page 对象");
+            }
+            return ApiResultUtils.buildPageResult((Page<?>) list, list);
+        } finally {
+            // 查询前若抛异常，PageHelper 的 ThreadLocal 不会被消费，须显式清理，防止线程池复用时串到下一次请求
+            PageHelper.clearPage();
+        }
     }
 
-    /** 新增 */
-    @RequestMapping("/add")
+    /**
+     * 新增（写操作显式 POST，配合 SameSite=Lax 与请求头鉴权，防止 CSRF）
+     * 标注 @MenuPermission：menu-auth-strict=true 时非管理员将被 4010 拦截
+     */
+    @PostMapping("/add")
+    @MenuPermission(value = "demo:add", name = "示例新增")
     public ApiResult<Void> add(@RequestBody DemoItem item) {
         demoItemService.save(item);
         return ApiResultUtils.buildResult();
     }
 
-    /** 编辑 */
-    @RequestMapping("/update")
+    /** 编辑（写操作，见 add 说明） */
+    @PostMapping("/update")
+    @MenuPermission(value = "demo:update", name = "示例编辑")
     public ApiResult<Void> update(@RequestBody DemoItem item) {
         if (item.getId() == null) {
             throw new BusinessException(4000, "id不能为空");
@@ -74,12 +100,23 @@ public class DemoController {
         return ApiResultUtils.buildResult();
     }
 
-    /** 删除（支持 id 或 id,id,id） */
-    @RequestMapping("/delete")
+    /**
+     * 删除（写操作，改 POST 防止跨站 GET 触发 CSRF）
+     * @param ids 支持 id 或 id,id,id
+     */
+    @PostMapping("/delete")
+    @MenuPermission(value = "demo:delete", name = "示例删除")
     public ApiResult<Void> delete(@RequestParam String ids) {
+        List<Long> idList = new ArrayList<>(8);
         for (String id : ids.split(",")) {
-            demoItemService.removeById(Long.valueOf(id.trim()));
+            try {
+                idList.add(Long.valueOf(id.trim()));
+            } catch (NumberFormatException e) {
+                throw new BusinessException(4000, "删除参数非法：" + id);
+            }
         }
+        // 单次批量删除并置于同一事务，避免逐条删除中途失败造成部分删除
+        demoItemService.deleteBatch(idList);
         return ApiResultUtils.buildResult();
     }
 

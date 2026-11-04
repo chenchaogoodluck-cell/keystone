@@ -5,8 +5,10 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.keystone.admin.entity.DemoItem;
 import com.keystone.admin.mapper.DemoItemMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -25,5 +27,15 @@ public class DemoItemService extends ServiceImpl<DemoItemMapper, DemoItem> {
                 .eq(status != null, DemoItem::getStatus, status)
                 .orderByDesc(DemoItem::getId);
         return list(wrapper);
+    }
+
+    /**
+     * 批量删除：整批置于同一事务，任一条失败则全部回滚，避免部分删除
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteBatch(Collection<Long> ids) {
+        if (ids != null && !ids.isEmpty()) {
+            removeByIds(ids);
+        }
     }
 }

@@ -150,7 +150,7 @@
             } else if (obj.event === 'del'){
                 layer.confirm('确定删除该条数据吗？', function(index){
                     layer.close(index);
-                    $.get('/api/v1/demo/delete', { ids: data.id }, function(res){
+                    $.post('/api/v1/demo/delete', { ids: data.id }, function(res){
                         layer.msg(res.msg, {icon: res.code === 0 ? 1 : 2, time: 1500});
                         if (res.code === 0) table.reload('demo-table');
                     });

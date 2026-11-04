@@ -31,8 +31,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class JwtUtils {
 
-    /** 内存 token 缓存：key=prefix+username，value=token（进程内有效，重启即失效） */
-    private final Map<String, String> tokenCache = new ConcurrentHashMap<>();
+    /** 内存 token 缓存：key=prefix+username，value=token（进程内有效，重启即失效）
+     *  static 以便鉴权拦截器在签名/过期校验之外，再核对 token 是否仍是该用户当前有效的
+     *  登录 token（登出后从缓存移除，即实现「log-out 后真正失效」）。 */
+    private static final Map<String, String> tokenCache = new ConcurrentHashMap<>();
 
     @Value("${spring.profiles.active:local}")
     private String activeProfile;
@@ -44,7 +46,7 @@ public class JwtUtils {
     /** 服务器端 JWT 签名密钥（从配置注入，未配置则启动失败） */
     private static String jwtSecret;
 
-    private String tokenPrefix;
+    private static String tokenPrefix;
 
     @Value("${app.jwt.secret:}")
     public void setJwtSecret(String secret) {
@@ -108,6 +110,14 @@ public class JwtUtils {
             log.warn("Keystone 缓存 token 校验失败（签名不符或已过期），重新签发：{}", e.getMessage());
             return false;
         }
+    }
+
+    /** 校验 token 是否仍是该用户「当前有效」的登录 token（与签发缓存比对，登出后即失效） */
+    public static boolean isTokenCurrent(String username, String token) {
+        if (StrUtil.isBlank(username) || StrUtil.isBlank(token)) {
+            return false;
+        }
+        return StrUtil.equals(tokenCache.get(tokenPrefix + username), token);
     }
 
     /** 解析并校验 token（签名 + 过期），失败抛业务异常（code=1001 未登录） */
