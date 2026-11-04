@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *         以兼容 iframe 弹层 / 页面跳转等无法携带请求头的场景；</li>
  *     <li>签名密钥来自 {@code app.jwt.secret}（环境变量 JWT_SECRET），未配置则启动失败（fail-fast）；</li>
  *     <li>已签发 token 缓存在内存（按 profile 隔离），支持登录态管理（退出时删除）。
- *         当前为无 Redis 的内存实现；如需 Redis 分发/失效，替换为调用 RedisUtil 即可。</li>
+ *         当前为无 Redis 的内存实现；如需 Redis 分发/失效，替换为注入 RedisTemplate 缓存 token 即可。</li>
  * </ul>
  */
 @Slf4j

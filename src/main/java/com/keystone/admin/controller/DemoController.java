@@ -10,6 +10,8 @@ import com.keystone.admin.service.DemoItemService;
 import com.keystone.admin.service.DemoTagStrategyService;
 import com.keystone.admin.service.LocalDemoTagService;
 import com.keystone.admin.service.strategy.DemoTagEnvService;
+import com.keystone.admin.utils.Util;
+import com.keystone.admin.vo.PageReqVo;
 import com.keystone.admin.web.ApiPageResult;
 import com.keystone.admin.web.ApiResult;
 import com.keystone.admin.web.ApiResultUtils;
@@ -36,9 +38,6 @@ import java.util.Map;
 @RequestMapping("/api/v1/demo")
 public class DemoController {
 
-    /** 分页单次最大条数：防止前端传超大 limit 一次拉全表打垮 DB/内存 */
-    private static final int MAX_PAGE_SIZE = 200;
-
     @Resource
     private DemoItemService demoItemService;
 
@@ -53,18 +52,14 @@ public class DemoController {
     /**
      * 分页查询（layui table 约定：page + limit + 查询条件），返回 code/count/data
      */
-    @RequestMapping("/page")
-    public ApiPageResult<DemoItem> page(@RequestParam(defaultValue = "1") int page,
-                                        @RequestParam(defaultValue = "15") int limit,
+    @MenuPermission(value = "demo:list", name = "示例列表")
+    @PostMapping("/page")
+    public ApiPageResult<DemoItem> page(PageReqVo pageReq,
                                         @RequestParam(required = false) String name,
                                         @RequestParam(required = false) Integer status) {
-        // 收敛分页参数：非法值回退到安全范围
-        if (page < 1) {
-            page = 1;
-        }
-        if (limit < 1 || limit > MAX_PAGE_SIZE) {
-            limit = MAX_PAGE_SIZE;
-        }
+        // 收敛分页参数：非法值回退到安全范围（PageReqVo 默认 page=1, limit=15）
+        int page = Util.normalizePage(pageReq.getPage());
+        int limit = Util.normalizeLimit(pageReq.getLimit());
         PageHelper.startPage(page, limit);
         try {
             List<DemoItem> list = demoItemService.pageQuery(name, status, null);
@@ -124,6 +119,7 @@ public class DemoController {
      * 多数据源切换演示：一次请求内分别查询「主数据源」（master → keystone.sys_demo_item）
      * 与「动态注册的第二数据源」（localDemo → keystone_demo.sys_demo_tag）。
      */
+    @MenuPermission(value = "demo:datasource", name = "多数据源演示")
     @RequestMapping("/datasource")
     public ApiResult<Map<String, Object>> datasourceDemo() {
         Map<String, Object> result = new HashMap<>(8);
@@ -142,6 +138,7 @@ public class DemoController {
      * 环境策略 demo：前端传 env（1=local, 2=dev），策略工厂自动路由到对应环境数据源服务，
      * 无需在 Controller 里写任何 if-else / switch。
      */
+    @MenuPermission(value = "demo:env", name = "环境策略演示")
     @RequestMapping("/env")
     public ApiResult<Map<String, Object>> byEnv(@RequestParam(defaultValue = "1") int env) {
         Map<String, Object> result = new HashMap<>(6);

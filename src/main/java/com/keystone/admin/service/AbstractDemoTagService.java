@@ -34,7 +34,7 @@ public abstract class AbstractDemoTagService extends ServiceImpl<SysDemoTagMappe
         LambdaQueryWrapper<SysDemoTag> wrapper = new LambdaQueryWrapper<>();
         wrapper.orderByDesc(SysDemoTag::getId);
         List<SysDemoTag> list = list(wrapper);
-        log.info("Keystone 环境策略演示：数据源 [{}] 查询 sys_demo_tag 返回 {} 条", dsName(), list.size());
+        log.debug("Keystone 环境策略演示：数据源 [{}] 查询 sys_demo_tag 返回 {} 条", dsName(), list.size());
         return list;
     }
 }

@@ -35,11 +35,11 @@ public class GlobalExceptionHandler {
         return result;
     }
 
-    /** 业务异常 */
+    /** 业务异常（预期内的异常，降级为 WARN，避免刷屏淹没真实错误） */
     @ExceptionHandler(value = BusinessException.class)
     public <T> ApiResult<T> handleBusinessException(HttpServletRequest request, BusinessException ex) {
         ApiResult<T> result = new ApiResult<>(ex.getErrCode(), ex.getMessage());
-        printErrorLog(request, ex);
+        log.warn("Keystone 业务异常 method={}, url={}, msg={}", request.getMethod(), request.getRequestURI(), ex.getMessage());
         return result;
     }
 

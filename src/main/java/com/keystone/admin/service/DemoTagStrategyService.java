@@ -27,7 +27,7 @@ public class DemoTagStrategyService {
 
     public DemoTagStrategyService(List<DemoTagEnvService> envServices) {
         this.envServices = envServices.stream()
-                .collect(Collectors.toMap(EnvStrategy::envType, Function.identity()));
+                .collect(Collectors.toMap(EnvStrategy::envType, Function.identity(), (a, b) -> a));
         log.info("Keystone 环境策略门面已注册 {} 个环境服务：{}", this.envServices.size(), this.envServices.keySet());
     }
 

@@ -76,6 +76,7 @@
         table.render({
             elem: '#demo-table',
             url: '/api/v1/demo/page',
+            method: 'post',
             toolbar: false,
             defaultToolbar: ['filter', 'exports', 'print'],
             cols: [[
@@ -122,8 +123,7 @@
                 success: function(layero){
                     if (id){
                         var iframeWin = layero.find('iframe')[0].contentWindow;
-                        // 编辑时由 add 页自行按 ?id 拉取数据或由调用方注入；这里通过接口查询后注入
-                        $.get('/api/v1/demo/page', { name: '' }, function(){});
+                        // 编辑时由 add 页自行按 ?id 拉取数据
                     }
                 }
             });
