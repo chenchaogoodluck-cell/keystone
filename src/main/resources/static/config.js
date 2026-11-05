@@ -20,7 +20,8 @@ layui.define(['laytpl', 'layer', 'element', 'util'], function(exports){
     ,tableName: 'keystoneToken' //本地存储表名
     ,MOD_NAME: 'keystone' //模块事件名
     
-    ,debug: true //是否开启调试模式。如开启，接口异常时会抛出异常 URL 等信息
+    // 调试模式仅本地开发开启：开启时接口异常提示会显示请求 URL；非本地环境关闭，避免泄露内部路径与参数
+    ,debug: /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname)
 
     //自定义请求字段
     ,request: {

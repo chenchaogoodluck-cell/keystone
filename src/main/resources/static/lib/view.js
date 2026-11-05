@@ -66,21 +66,16 @@ layui.define(['laytpl', 'layer'], function(exports){
       : '';
     };
     
-    options.data = options.data || {};
     options.headers = options.headers || {};
     
-    if(request.tokenName){
-      //自动给参数传入默认 token（仅当 data 为对象时注入，兼容 data 为 JSON 字符串的请求）
-      if(options.data && typeof options.data === 'object' && !Array.isArray(options.data)){
-        options.data[request.tokenName] = request.tokenName in options.data 
-          ?  options.data[request.tokenName]
-        : (layui.data(setter.tableName)[request.tokenName] || '');
+    // token 只通过请求头携带，禁止写入 data：view.req 默认 type='get'，data 会被序列化到 URL query，
+    // 导致 token 落入 Nginx/Tomcat 访问日志、浏览器历史和 Referer。后端 JwtUtils.resolveToken()
+    // 也只读取 Header / HttpOnly Cookie，写入参数毫无作用；iframe 跳转等场景由 HttpOnly Cookie 兜底。
+    if(request.tokenName && !(request.tokenName in options.headers)){
+      var cachedToken = layui.data(setter.tableName)[request.tokenName];
+      if(cachedToken){
+        options.headers[request.tokenName] = cachedToken;
       }
-      
-      //自动给 Request Headers 传入 token
-      options.headers[request.tokenName] = request.tokenName in options.headers 
-        ?  options.headers[request.tokenName]
-      : (layui.data(setter.tableName)[request.tokenName] || '');
     }
     
     delete options.success;
