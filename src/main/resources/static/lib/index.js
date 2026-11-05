@@ -68,9 +68,13 @@ layui.extend({
   ,APP_BODY = '#LAY_app_body', FILTER_TAB_TBAS = 'layadmin-layout-tabs'
   ,$ = layui.$, $win = $(window);
 
-  //全局请求统一携带 token（请求头 x-66nao-auth-token），并统一处理登录失效
+  //全局请求统一携带 token（请求头 x-keystone-auth-token），并统一处理登录失效。
+  // view.req 已通过 $.ajax 的 headers 设置过 token 时跳过：同名 header 再 setRequestHeader 一次
+  // 会被 XHR 追加成 "token, token"，部分容器取到拼接值会导致鉴权失败。
   $(document).ajaxSend(function(event, xhr, settings){
-    var token = setter.request.tokenName ? layui.data(setter.tableName)[setter.request.tokenName] : '';
+    if(!setter.request.tokenName) return;
+    if(settings.headers && settings.headers[setter.request.tokenName]) return;
+    var token = layui.data(setter.tableName)[setter.request.tokenName];
     if(token){
       xhr.setRequestHeader(setter.request.tokenName, token);
     }

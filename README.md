@@ -43,7 +43,7 @@
 3. **JWT 密钥**：本地 profile 已内置开发密钥；非本地环境通过环境变量 `JWT_SECRET` 注入强随机值（未配置则启动 fail-fast）。
 4. **启动**：运行 `KeystoneApplication`（默认 profile=`local`，端口 `9110`）。IDEA 内置 Maven + JDK8 导入即可，无全局 `mvn` 也能跑。
 5. **访问**：<http://localhost:9110> ，默认账号 `admin / 123456`。
-6. **数据源监控**：<http://localhost:9110/druid/index.html> 。
+6. **数据源监控**：<http://127.0.0.1:9110/druid/index.html> 。默认仅允许本机回环访问，账号密码由 `KEYSTONE_DRUID_USER` / `KEYSTONE_DRUID_PWD` 配置（内置值仅供本地演示）；部署到非本机环境前必须修改，或用 `KEYSTONE_DRUID_ENABLED=false` 直接关闭。
 
 打包运行：
 

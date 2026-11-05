@@ -29,13 +29,14 @@
     <!-- spring日志 -->
     <logger name="org.springframework.web" level="INFO" />
 
+    <!--
+      springProfile 只能是 <configuration> 的直接子元素，且仅在 logback-spring.xml 中可靠支持；
+      本文件通过 logging.config 自定义加载，原先把它嵌在 <root> 内时 appender-ref 会被忽略，
+      导致 root 没有任何 appender、日志全部静默丢失。
+      这里改为无条件挂载两个 appender：控制台便于容器采集，文件便于事后排查，任何环境都不会丢日志。
+    -->
     <root level="info">
-        <!--appender 若全部包在 springProfile 内，则 dev/fat/pro 环境没有任何 appender，日志静默丢失-->
-        <springProfile name="local">
-            <appender-ref ref="STDOUT"/>
-        </springProfile>
-        <springProfile name="!local">
-            <appender-ref ref="FILE"/>
-        </springProfile>
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="FILE"/>
     </root>
 </configuration>
