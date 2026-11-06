@@ -68,21 +68,39 @@ layui.extend({
   ,APP_BODY = '#LAY_app_body', FILTER_TAB_TBAS = 'layadmin-layout-tabs'
   ,$ = layui.$, $win = $(window);
 
-  //全局请求统一携带 token（请求头 x-keystone-auth-token），并统一处理登录失效。
-  // view.req 已通过 $.ajax 的 headers 设置过 token 时跳过：同名 header 再 setRequestHeader 一次
-  // 会被 XHR 追加成 "token, token"，部分容器取到拼接值会导致鉴权失败。
-  $(document).ajaxSend(function(event, xhr, settings){
-    if(!setter.request.tokenName) return;
-    if(settings.headers && settings.headers[setter.request.tokenName]) return;
-    var token = layui.data(setter.tableName)[setter.request.tokenName];
-    if(token){
-      xhr.setRequestHeader(setter.request.tokenName, token);
+  //浏览器端鉴权完全依赖 HttpOnly Cookie：token 不再写入 localStorage，避免 XSS 窃取。
+  //Cookie 会自动携带，但写请求需 CSRF 双提交：把非 HttpOnly 的 CSRF Cookie 值回传到自定义请求头。
+  //用 $.ajaxPrefilter 而非 ajaxSend，可覆盖 view.req 以及 layui table 等组件内部发起的所有 $.ajax 请求。
+  (function(){
+    var csrf = setter.csrf || {};
+    function readCsrfCookie(){
+      if(!csrf.cookieName || !document.cookie) return '';
+      var pairs = document.cookie.split(';');
+      for(var i = 0; i < pairs.length; i++){
+        var pair = pairs[i].replace(/^\s+/, '');
+        var idx = pair.indexOf('=');
+        if(idx > -1 && pair.slice(0, idx) === csrf.cookieName){
+          var value = pair.slice(idx + 1);
+          try { return decodeURIComponent(value); } catch(err) { return value; }
+        }
+      }
+      return '';
     }
-  });
+    $.ajaxPrefilter(function(options){
+      options.headers = options.headers || {};
+      var value = readCsrfCookie();
+      if(value && csrf.headerName && !options.headers[csrf.headerName]){
+        options.headers[csrf.headerName] = value;
+      }
+      //允许 CORS 白名单来源的跨源请求携带 HttpOnly Cookie（同源请求本身就会携带）
+      options.xhrFields = $.extend({ withCredentials: true }, options.xhrFields);
+    });
+  })();
+
   $(document).ajaxSuccess(function(event, xhr, settings){
     var res = xhr.responseJSON;
     if(res && res[setter.response.statusName] === setter.response.statusCode.logout){
-      //登录失效：清除本地 token，跳转登录页
+      //登录失效：清理旧版本残留的本地 token，跳转登录页（服务端 Cookie 由登出接口清除）
       layui.data(setter.tableName, {
         key: setter.request.tokenName
         ,remove: true

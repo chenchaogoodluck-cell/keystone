@@ -6,6 +6,7 @@ import com.keystone.admin.web.ApiResult;
 import com.keystone.admin.web.ApiResultUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,16 +35,16 @@ public class UserController {
     public ApiResult<Void> logout(HttpServletResponse response) {
         String username = CurrentUserHolder.getName();
         jwtUtils.invalidateToken(username);
-        // 写回同名空值 + Max-Age=0 的 Cookie，指示浏览器立即删除，避免登出后残留失效 token
-        response.addHeader("Set-Cookie",
-                JwtUtils.TOKEN_COOKIE + "=; Path=/; Max-Age=0; HttpOnly"
-                        + (cookieSecure ? "; Secure" : "") + "; SameSite=Lax");
+        // 写回空值 + Max-Age=0 的 Cookie，指示浏览器立即删除，避免登出后残留失效 token / CSRF token
+        String suffix = "; Path=/; Max-Age=0; SameSite=Lax" + (cookieSecure ? "; Secure" : "");
+        response.addHeader("Set-Cookie", JwtUtils.TOKEN_COOKIE + "=;" + suffix + "; HttpOnly");
+        response.addHeader("Set-Cookie", JwtUtils.CSRF_COOKIE + "=;" + suffix);
         log.info("Keystone 用户退出登录：username={}", username);
         return ApiResultUtils.buildResult();
     }
 
     /** 当前登录用户信息（个人资料页使用） */
-    @RequestMapping("/getInfo")
+    @GetMapping("/getInfo")
     public ApiResult<Map<String, Object>> getInfo() {
         String username = CurrentUserHolder.getName();
         Map<String, Object> info = new HashMap<>(6);

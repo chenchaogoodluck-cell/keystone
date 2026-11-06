@@ -13,20 +13,21 @@
 | 持久层 | MyBatis + MyBatis-Plus 3.3.2 + PageHelper |
 | 数据库 | MySQL 8.0.33（Druid 1.2.24 连接池 + 监控） + dynamic-datasource 3.6.1 动态多数据源 |
 | 缓存 | Spring Data Redis（Lettuce 连接池） |
-| 鉴权 | JWT（java-jwt 3.8.3，请求头 + HttpOnly Cookie） |
+| 鉴权 | JWT（java-jwt 3.8.3，HttpOnly Cookie + CSRF 双提交；请求头 token 供非浏览器 API 客户端） |
 | 工具 | Hutool 5.7.15 · fastjson 1.2.83 · Lombok |
 
 ## 已内置的框架能力
 
-- **登录**：JWT 签发 / 校验，token 写入请求头 `x-keystone-auth-token` 与 HttpOnly Cookie（兼容 iframe 弹层页面跳转）；签发后按「环境 + 用户」缓存于内存，登出即失效。
-- **登录拦截器**：`MyHandlerInterceptor` 拦截 `.addPathPatterns("/api/**")` 所有数据接口，未登录 / token 失效统一返回 `code=1001`（前端据此跳登录页）。
+- **登录**：JWT 签发 / 校验。浏览器端只把 token 写入 `HttpOnly` Cookie（不落 localStorage，避免 XSS 窃取；iframe 弹层等同源请求自动携带），同时下发非 HttpOnly 的 CSRF Cookie；签发后按「环境 + 用户」缓存于内存，登出即失效。
+- **登录拦截器**：`MyHandlerInterceptor` 拦截 `.addPathPatterns("/api/**")` 所有数据接口，未登录 / token 失效统一返回 `code=1001`（前端据此跳登录页）。token 优先取请求头，其次取同名 HttpOnly Cookie。
 - **菜单页面权限**：`@MenuPermission("xxx:list")` 注解 + `MenuPermissionInterceptor`。内置管理员（`keystone.security.admin-users`，默认 `admin`）拥有全部页面权限；默认非严格模式（`menu-auth-strict=false`），任意已登录用户可访问页面；可切换严格模式（页面进无权限页、`/api` 返回 `4010`）。
-- **统一返回**：`ApiResult` / `ApiPageResult`（layui table 约定 `code/count/data`）+ `GlobalExceptionHandler` 统一异常。
+- **统一返回**：`ApiResult` / `ApiPageResult`（layui table 约定 `code/count/data`）+ `GlobalExceptionHandler` 统一异常（校验失败返回具体字段的 `@NotBlank` 等提示）。
 - **当前用户**：`CurrentUserHolder`（ThreadLocal，`afterCompletion` 请求结束自动清理，防线程池复用串号）。
-- **Redis 工具**：`RedisUtil` 常用操作封装（String/Hash/List/Set/ZSet/自增等）。
+- **Redis**：`RedisConfig` 提供 Lettuce 连接池；当前登录态用进程内存缓存（多实例不共享），可替换为 `RedisTemplate` / `StringRedisTemplate` 实现共享与主动失效。
 - **动态多数据源**：`MultiDataSourceRegister` 启动时按「环境 × 业务域」笛卡尔积动态注册到 `DynamicRoutingDataSource`，service 用 `@DS` 注解切换；新增环境/业务域无需改代码。demo 见下。
 - **跨域**：`CorsFilter` 白名单收敛（仅列出的来源允许携带凭据），杜绝 `"*" + credentials` 组合。
-- **CSRF 收敛**：写操作（登录 / 新增 / 编辑 / 删除 / 登出）显式 `POST`，配合 Cookie `SameSite=Lax` 与请求头鉴权。
+- **CSRF 防护**：写操作显式 `POST` + Cookie `SameSite=Lax`；`BrowserSecurityFilter` 对 Cookie 鉴权的写请求做双提交校验（`keystone-csrf` Cookie ↔ `X-Keystone-Csrf` 请求头，值为 `HMAC(JWT_SECRET, token)`，服务端无状态）。显式携带 token 请求头的非浏览器客户端不受影响。
+- **安全响应头**：`BrowserSecurityFilter` 统一输出 `Content-Security-Policy`（同源加载、`connect-src 'self'` 阻断数据外联、禁止外站嵌套）、`X-Content-Type-Options`、`X-Frame-Options: SAMEORIGIN`、`Referrer-Policy`。layuiAdmin 依赖 `laytpl` / `new Function` 与内联脚本，故 CSP 保留 `'unsafe-inline' / 'unsafe-eval'`；要进一步收紧，需先把模板改为预编译并移除内联脚本。
 - **页面框架**：layuiAdmin 主布局（顶部用户菜单 / 侧边栏 / 多标签页 / 主题切换 / 菜单权限过滤）+ 登录页 / 首页(快捷方式) / 404 / 500 / 403。
 - **示例模块**：`sys_demo_item` 增删改查 + `多数据源演示`页 + `环境策略演示`，作为「新增业务模块」「跨数据源查询」「按 env 路由」的完整范式。
 
@@ -40,7 +41,7 @@
    CREATE DATABASE keystone_demo  DEFAULT CHARSET utf8mb4;
    ```
 2. **配置连接**：编辑 `config/application-local.yml` 中的主数据源（`spring.datasource.dynamic.datasource.master`）、动态数据源（`keystone.datasource`）与 Redis（默认指向 `127.0.0.1`）。本地默认口令可直接使用。
-3. **JWT 密钥**：本地 profile 已内置开发密钥；非本地环境通过环境变量 `JWT_SECRET` 注入强随机值（未配置则启动 fail-fast）。
+3. **JWT 密钥**：本地 profile 已内置开发密钥；`dev` 等非 local 环境必须通过环境变量 `JWT_SECRET` 注入强随机值（未配置则启动 fail-fast）。
 4. **启动**：运行 `KeystoneApplication`（默认 profile=`local`，端口 `9110`）。IDEA 内置 Maven + JDK8 导入即可，无全局 `mvn` 也能跑。
 5. **访问**：<http://localhost:9110> ，默认账号 `admin / 123456`。
 6. **数据源监控**：<http://127.0.0.1:9110/druid/index.html> 。默认仅允许本机回环访问，账号密码由 `KEYSTONE_DRUID_USER` / `KEYSTONE_DRUID_PWD` 配置（内置值仅供本地演示）；部署到非本机环境前必须修改，或用 `KEYSTONE_DRUID_ENABLED=false` 直接关闭。
@@ -61,7 +62,7 @@ java -jar target/keystone-1.0.0-SNAPSHOT.jar
 | 环境变量 | 对应配置 | 说明 |
 | --- | --- | --- |
 | `PROFILE` | `spring.profiles.active` | 运行期覆盖 Maven 打进包里的默认 profile |
-| `JWT_SECRET` | `app.jwt.secret` | JWT 签名密钥，非本地环境必填 |
+| `JWT_SECRET` | `app.jwt.secret` | JWT 签名密钥，非 local 环境必填 |
 | `COOKIE_SECURE` | `app.jwt.cookie-secure` | 生产 HTTPS 设 `true`；本地/内网 http 保持 `false` |
 | `KEYSTONE_USERS` | `keystone.security.users` | 可登录账号 `username=password`，多个逗号分隔 |
 | `KEYSTONE_MENU_STRICT` | `keystone.security.menu-auth-strict` | 菜单页面权限是否严格模式 |
@@ -73,7 +74,7 @@ java -jar target/keystone-1.0.0-SNAPSHOT.jar
 
 ### Maven Profile 打包
 
-`pom.xml` 提供 `local`（默认激活）/ `dev` / `fat` / `pro` 四个 profile，各自设置 `profileActive`。打包时经 resource 过滤把 `application.yml` 里的 `@profileActive@` 替换为对应环境名：
+`pom.xml` 提供 `local`（默认激活）/ `dev` 两个 profile，各自设置 `profileActive`。打包时经 resource 过滤把 `application.yml` 里的 `@profileActive@` 替换为对应环境名：
 
 ```bash
 mvn clean package -P dev     # 得到 spring.profiles.active: ${PROFILE:dev}
@@ -81,7 +82,8 @@ mvn clean package -P dev     # 得到 spring.profiles.active: ${PROFILE:dev}
 
 - 运行期 `PROFILE` 环境变量优先级最高，可临时覆盖打进包的默认 profile。
 - resource 过滤**只对** `yml/yaml/properties/xml` 生效，其余资源（图片/字体/JS/HTML 模板）原样拷贝，避免二进制被破坏。
-- 各环境差异配置放于 `resources/config/application-{profile}.yml`。
+- 各环境差异配置放于 `resources/config/application-{profile}.yml`，仓库只提供与这两个 profile 对应的文件，避免「profile 存在但配置缺失」。
+- 若需新增环境（如 fat/pro）：在 `pom.xml` 增加同名 profile，并复制一份 `config/application-{profile}.yml`，结构必须与 `application-local.yml` 一致（`spring.datasource.dynamic.*` 多数据源 + `keystone.datasource.*` 环境×业务域），同时注入 `JWT_SECRET`。
 
 ## 动态多数据源
 
@@ -139,12 +141,13 @@ keystone/
 │   │   ├── config/                          # 拦截器 / WebMvc / Redis / Cors / Jackson / 安全与数据源配置
 │   │   ├── constant/ error/ exception/      # 常量 / 错误码 / 统一异常
 │   │   ├── web/                             # ApiResult / ApiPageResult / 分页工具
-│   │   ├── utils/                           # JwtUtils / RedisUtil / Util
+│   │   ├── utils/                           # JwtUtils / Util
 │   │   ├── dto/ vo/ entity/ mapper/ service/ controller/
 │   │   └── (entity/mapper/service/controller 中的 Demo* 为示例模块)
 │   └── resources/
 │       ├── application.yml                  # 通用配置 + keystone.security + 环境变量占位
-│       ├── config/application-{local,dev}.yml  # 各环境连接（DB / Redis / JWT 开发密钥）
+│       ├── META-INF/additional-spring-configuration-metadata.json  # app.* 自定义配置的 IDE 补全/校验元数据
+│       ├── config/application-{local,dev}.yml  # 各环境连接（DB / Redis）；JWT 开发密钥仅内置于 local
 │       ├── logback-local.xml                # 控制台(local) + 按天滚动文件(!local)
 │       ├── static/                          # layuiAdmin 前端主题（可直接改样式）
 │       ├── templates/                       # FreeMarker 页面
@@ -157,14 +160,16 @@ keystone/
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| POST | `/api/v1/auth/login` | 登录，成功签发 token 并写 HttpOnly Cookie |
-| POST | `/api/v1/user/logout` | 登出，删除缓存 token 并使 Cookie 立即过期 |
-| GET/POST | `/api/v1/user/getInfo` | 当前登录用户信息 |
-| GET/POST | `/api/v1/menuPermission/current` | 当前用户可访问菜单权限（前端渲染菜单） |
-| GET/POST | `/api/v1/demo/page` | 分页查询（`page/limit/name/status`，`limit` 上限 200） |
+| POST | `/api/v1/auth/login` | 登录，写 HttpOnly token Cookie + CSRF Cookie（响应体 token 仅供非浏览器 API 客户端） |
+| POST | `/api/v1/user/logout` | 登出，删除缓存 token 并使两个 Cookie 立即过期 |
+| GET | `/api/v1/user/getInfo` | 当前登录用户信息 |
+| GET | `/api/v1/menuPermission/current` | 当前用户可访问菜单权限（前端渲染菜单） |
+| POST | `/api/v1/demo/page` | 分页查询（`page/limit/name/status`，`limit` 上限 200） |
 | POST | `/api/v1/demo/add` · `/update` · `/delete` | 新增 / 编辑 / 批量删除 |
-| GET/POST | `/api/v1/demo/datasource` · `/env` | 多数据源、环境策略演示 |
+| GET | `/api/v1/demo/datasource` · `/env` | 多数据源、环境策略演示 |
 | GET/POST | `/api/**`（兜底） | 未命中的接口统一返回 `4003` |
+
+> 所有 `/api/**` 的写请求（登录除外）需携带 CSRF 双提交请求头；前端 jQuery AJAX 已由 `lib/index.js` 的 `$.ajaxPrefilter` 统一注入，无需在业务代码里处理。升级前已登录的会话缺少 CSRF Cookie 时，`BrowserSecurityFilter` 会在页面请求中自动补发，刷新页面即可继续，无需强制全体重新登录。
 
 统一返回码（`error/ErrorCode`）：
 
@@ -176,6 +181,7 @@ keystone/
 | 4001 | 请求方法不支持 |
 | 4002 | 请求体错误 |
 | 4003 | 请求的资源未找到 |
+| 4004 | CSRF 校验失败（刷新页面后重试） |
 | 4010 | 用户无权限（严格模式） |
 | 5000 | 系统异常 |
 
@@ -199,6 +205,8 @@ keystone/
 4. 复制 `templates/demo/list.html`、`add.html`，替换 table 的 `url` 与表单 `url`。
 5. 在 `templates/index.html` 侧边栏与 `home/main.html` 快捷方式加菜单（带 `data-permission`，前端按权限渲染；`data-permission` 与注解 `value` 对应）。
 
+> 条件模糊查询请用 `DemoItemService.escapeLike` 的姿势：先转义 `\` / `%` / `_` 再 `like`，避免用户输入被当作通配符扩大匹配。
+
 ## 重命名为新项目
 
 搜索替换以下占位：
@@ -207,17 +215,18 @@ keystone/
 | --- | --- | --- |
 | `com.keystone.admin` | 基础包名 | 全部 Java 文件 |
 | `keystone` / `Keystone` | artifactId、应用名、页面标题 | `pom.xml`、入口类、`templates/*.html` 标题 |
-| `x-keystone-auth-token` | 请求头 token 字段名 | `JwtUtils`、`static/config.js`（`setter.request.tokenName`，二者必须一致） |
+| `x-keystone-auth-token` | 登录 token 的 HttpOnly Cookie / 请求头名 | `JwtUtils.TOKEN_COOKIE/TOKEN_HEADER`、`static/config.js`（`setter.request.tokenName` 仅用于清理历史本地存储） |
 | `Keystone` | 系统名称 | `index.html`、`login.html` 文案 |
 
 ## 认证扩展
 
 `AuthService.validate` 默认校验 `application.yml` 的 `keystone.security.users`。对接真实用户体系（用户表 / AD / LDAP）时，仅需修改 `AuthService` 的 `validate` 实现，token 签发、拦截器、页面框架均无需改动。
 
-> 提示：token 当前缓存在进程内存（按 profile 隔离），重启即失效、多实例不共享。需要分布式共享/主动失效时，把 `JwtUtils` 的内存 `tokenCache` 换成 `RedisUtil` 调用即可。
+> 提示：token 当前缓存在进程内存（按 profile 隔离），重启即失效、多实例不共享。需要分布式共享/主动失效时，把 `JwtUtils` 的内存 `tokenCache` 换成 `RedisTemplate` / `StringRedisTemplate` 调用即可。
 
 ## 前端说明
 
 - 主题为 layuiAdmin（Lay-UI 开源协议，见各文件头注）。
 - 页面资源统一 `/static/`（`layui`、`lib`、`style`、`tpl`、`editor`、`modules/common.js`）。
-- `setter.request.tokenName` 必须与后端 `JwtUtils.TOKEN_HEADER` 一致；`setter.response.statusCode.logout`（1001）与登录拦截器返回码一致。
+- 浏览器端不再保存 token：`setter.csrf.cookieName / headerName` 必须与后端 `JwtUtils.CSRF_COOKIE / CSRF_HEADER` 一致；`setter.request.tokenName` 仅用于清理旧版本残留在 `layui.data` 中的 token；`setter.response.statusCode.logout`（1001）与登录拦截器返回码一致。
+- 所有 jQuery AJAX 由 `lib/index.js` 的 `$.ajaxPrefilter` 统一注入 CSRF 请求头（覆盖 `view.req`、layui table 及 `$.post`）；新增页面若用原生 `fetch` 发起写请求，需自行带上 `X-Keystone-Csrf`。

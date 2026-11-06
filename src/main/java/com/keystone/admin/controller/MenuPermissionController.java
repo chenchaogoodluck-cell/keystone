@@ -4,6 +4,7 @@ import com.keystone.admin.config.CurrentUserHolder;
 import com.keystone.admin.service.MenuPermissionService;
 import com.keystone.admin.web.ApiResult;
 import com.keystone.admin.web.ApiResultUtils;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -20,7 +21,7 @@ public class MenuPermissionController {
     @Resource
     private MenuPermissionService menuPermissionService;
 
-    @RequestMapping("/current")
+    @GetMapping("/current")
     public ApiResult<Map<String, Object>> current() {
         String username = CurrentUserHolder.getName();
         return ApiResultUtils.buildResult(menuPermissionService.currentPermissions(username));

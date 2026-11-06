@@ -11,8 +11,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.Base64;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,8 +25,10 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * JWT 工具：签发 / 校验登录 token
  * <ul>
- *     <li>前端将 token 放请求头 {@link #TOKEN_HEADER}；登录后后端同时写入同名 HttpOnly Cookie，
- *         以兼容 iframe 弹层 / 页面跳转等无法携带请求头的场景；</li>
+ *     <li>浏览器端登录后只把 token 写入同名 HttpOnly Cookie（前端不再保存 token，避免 XSS 从
+ *         localStorage 窃取）；非浏览器 API 客户端仍可显式用请求头 {@link #TOKEN_HEADER} 携带 token；</li>
+ *     <li>Cookie 鉴权的写请求由 {@code BrowserSecurityFilter} 做 CSRF 双提交校验，
+ *         本类提供与登录 token 绑定的 CSRF token 生成 / 校验；</li>
  *     <li>签名密钥来自 {@code app.jwt.secret}（环境变量 JWT_SECRET），未配置则启动失败（fail-fast）；</li>
  *     <li>已签发 token 缓存在内存（按 profile 隔离），支持登录态管理（退出时删除）。
  *         当前为无 Redis 的内存实现；如需 Redis 分发/失效，替换为注入 RedisTemplate 缓存 token 即可。</li>
@@ -39,9 +46,16 @@ public class JwtUtils {
     @Value("${spring.profiles.active:local}")
     private String activeProfile;
 
-    /** 请求头 / Cookie 中携带 token 的字段名（与 static/config.js setter.request.tokenName 保持一致） */
+    /** 登录 token 的请求头 / HttpOnly Cookie 字段名（请求头供非浏览器 API 客户端使用） */
     public static final String TOKEN_HEADER = "x-keystone-auth-token";
     public static final String TOKEN_COOKIE = "x-keystone-auth-token";
+
+    /** CSRF 双提交：非 HttpOnly Cookie 名 + 前端回传的请求头名（须与 static/config.js setter.csrf 一致） */
+    public static final String CSRF_COOKIE = "keystone-csrf";
+    public static final String CSRF_HEADER = "X-Keystone-Csrf";
+
+    /** 登录 token 与 CSRF Cookie 有效期（30 天，与 createManagementToken 一致） */
+    public static final int TOKEN_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 
     /** 服务器端 JWT 签名密钥（从配置注入，未配置则启动失败） */
     private static String jwtSecret;
@@ -132,18 +146,52 @@ public class JwtUtils {
         }
     }
 
-    /** 获取签发对象（用户名） */
-    public static String getAudience(String token) {
-        if (StrUtil.isBlank(token)) {
-            throw new BusinessException(1001, "未登录或登录已过期");
-        }
-        return JWT.decode(token).getAudience().get(0);
-    }
-
     /** 退出登录：删除缓存的 token */
     public void invalidateToken(String username) {
         if (StrUtil.isNotBlank(username)) {
             tokenCache.remove(tokenPrefix + username);
         }
+    }
+
+    /**
+     * 生成与登录 token 绑定的 CSRF token（HMAC-SHA256，密钥为服务器端 JWT 密钥）。
+     * <p>服务端无状态：即便攻击者能在子域写入同名 Cookie，也算不出与当前 token 匹配的值。</p>
+     */
+    public static String buildCsrfToken(String authToken) {
+        if (StrUtil.isBlank(authToken)) {
+            return null;
+        }
+        return hmac("keystone:csrf|" + authToken);
+    }
+
+    /** 构造 CSRF Cookie 的 Set-Cookie 值（非 HttpOnly：前端需读取其值回传请求头） */
+    public static String buildCsrfCookie(String authToken, boolean secure) {
+        return CSRF_COOKIE + "=" + buildCsrfToken(authToken)
+                + "; Path=/; Max-Age=" + TOKEN_MAX_AGE_SECONDS
+                + "; SameSite=Lax" + (secure ? "; Secure" : "");
+    }
+
+    /** CSRF 双提交校验：Cookie 值、请求头值都须等于当前登录 token 对应的签名值 */
+    public static boolean isCsrfTokenValid(String cookieCsrf, String headerCsrf, String authToken) {
+        if (StrUtil.isBlank(cookieCsrf) || StrUtil.isBlank(headerCsrf) || StrUtil.isBlank(authToken)) {
+            return false;
+        }
+        String expected = hmac("keystone:csrf|" + authToken);
+        return constantTimeEquals(expected, cookieCsrf) && constantTimeEquals(expected, headerCsrf);
+    }
+
+    private static String hmac(String data) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(jwtSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            return Base64.getUrlEncoder().withoutPadding()
+                    .encodeToString(mac.doFinal(data.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            throw new IllegalStateException("Keystone CSRF token 生成失败", e);
+        }
+    }
+
+    private static boolean constantTimeEquals(String a, String b) {
+        return MessageDigest.isEqual(a.getBytes(StandardCharsets.UTF_8), b.getBytes(StandardCharsets.UTF_8));
     }
 }

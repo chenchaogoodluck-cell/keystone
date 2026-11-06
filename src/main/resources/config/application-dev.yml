@@ -1,15 +1,70 @@
-# 开发环境示例配置：覆盖 application-local.yml 缺省的连接参数。
-# 请将敏感配置改为环境变量注入，勿在仓库提交真实密码。
+# 开发环境示例配置：结构与 application-local.yml 一致（spring.datasource.dynamic 多数据源 + keystone.datasource），
+# 值统一通过环境变量注入，未设置时回退本地默认，便于本地切 -Pdev 验证；生产请去掉回退默认值。
+# 注意：本 profile 不含 app.jwt.secret（与 fat/pro 等非 local 环境一样），启动前必须注入 JWT_SECRET，
+#       否则 JwtUtils 的 fail-fast 会让应用启动失败；本地开发请用默认的 local profile。
 logging:
   config: classpath:logback-local.xml
 
 spring:
   datasource:
-    url: ${KEYSTONE_DB_URL}
-    username: ${KEYSTONE_DB_USER}
-    password: ${KEYSTONE_DB_PWD}
+    # ===== 动态多数据源（dynamic-datasource）=====
+    # primary 指定默认数据源；MultiDataSourceRegister 启动时按「环境 × 业务域」动态注册其余数据源
+    dynamic:
+      primary: master # 默认主数据源
+      strict: true    # 严格匹配：使用未注册的数据源名时抛异常，而不是静默回退主源
+      datasource:
+        master:
+          url: ${KEYSTONE_DB_URL:jdbc:mysql://127.0.0.1:3306/keystone?useSSL=false&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai}
+          username: ${KEYSTONE_DB_USER:root}
+          password: ${KEYSTONE_DB_PWD:123456}
+          driver-class-name: com.mysql.cj.jdbc.Driver
+    druid:
+      stat-view-servlet:
+        enabled: ${KEYSTONE_DRUID_ENABLED:true}
+        login-username: ${KEYSTONE_DRUID_USER:keystone}
+        login-password: ${KEYSTONE_DRUID_PWD:keystone-local-only}
+        # Druid allow/deny 只支持 IPv4 地址或网段，不能写 IPv6（详见 application-local.yml 注释）
+        allow: ${KEYSTONE_DRUID_ALLOW:127.0.0.1}
+        reset-enable: false
+        url-pattern: /druid/*
+      web-stat-filter:
+        enabled: true
+        exclusions: "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*"
+        url-pattern: /*
+        session-stat-enable: true
+        profile-enable: true
   redis:
-    host: ${KEYSTONE_REDIS_HOST}
-    port: ${KEYSTONE_REDIS_PORT}
-    password: ${KEYSTONE_REDIS_PWD}
+    host: ${KEYSTONE_REDIS_HOST:127.0.0.1}
+    port: ${KEYSTONE_REDIS_PORT:6379}
+    password: ${KEYSTONE_REDIS_PWD:}
     database: ${KEYSTONE_REDIS_DB:0}
+    timeout: 5000
+    lettuce:
+      pool:
+        max-active: 100
+        max-wait: 2s
+        min-idle: 10
+        max-idle: 50
+
+# ===== 动态数据源：环境 × 业务域 =====
+# 与 local.yml 同构：local/dev 两个环境 + Demo 业务域，注册 localDemo、devDemo 两个数据源。
+keystone:
+  datasource:
+    url-suffix: "allowMultiQueries=true&serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=UTF-8&autoReconnect=true"
+    environments:
+      local:
+        host: ${KEYSTONE_DEMO_DB_HOST:127.0.0.1}
+        port: ${KEYSTONE_DEMO_DB_PORT:3306}
+        username: ${KEYSTONE_DEMO_DB_USER:root}
+        password: ${KEYSTONE_DEMO_DB_PWD:123456}
+      dev:
+        host: ${KEYSTONE_DEMO_DB_HOST:127.0.0.1}
+        port: ${KEYSTONE_DEMO_DB_PORT:3306}
+        username: ${KEYSTONE_DEMO_DB_USER:root}
+        password: ${KEYSTONE_DEMO_DB_PWD:123456}
+    databases:
+      Demo: keystone_demo
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl

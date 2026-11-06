@@ -40,9 +40,10 @@ layui.define(['laytpl', 'layer'], function(exports){
     this.elemLoad && this.elemLoad.remove();
   };
   
-  //清除 token，并跳转到登入页
+  //退出：清理旧版本可能残留在本地存储的 token，并跳转到登入页
+  //（当前鉴权 token 由服务端 HttpOnly Cookie 保存，登出接口负责令其失效）
   view.exit = function(callback){
-    //清空本地记录的 token
+    //兼容清理：旧版本把 token 存在 layui.data 中，升级后不再写入
     layui.data(setter.tableName, {
       key: setter.request.tokenName
       ,remove: true
@@ -58,7 +59,6 @@ layui.define(['laytpl', 'layer'], function(exports){
     var that = this
     ,success = options.success
     ,error = options.error
-    ,request = setter.request
     ,response = setter.response
     ,debug = function(){
       return setter.debug 
@@ -66,18 +66,8 @@ layui.define(['laytpl', 'layer'], function(exports){
       : '';
     };
     
-    options.headers = options.headers || {};
-    
-    // token 只通过请求头携带，禁止写入 data：view.req 默认 type='get'，data 会被序列化到 URL query，
-    // 导致 token 落入 Nginx/Tomcat 访问日志、浏览器历史和 Referer。后端 JwtUtils.resolveToken()
-    // 也只读取 Header / HttpOnly Cookie，写入参数毫无作用；iframe 跳转等场景由 HttpOnly Cookie 兜底。
-    if(request.tokenName && !(request.tokenName in options.headers)){
-      var cachedToken = layui.data(setter.tableName)[request.tokenName];
-      if(cachedToken){
-        options.headers[request.tokenName] = cachedToken;
-      }
-    }
-    
+    // 浏览器端鉴权完全依赖 HttpOnly Cookie，token 不再写入本地存储或请求头（避免 XSS 窃取）。
+    // CSRF 请求头由 lib/index.js 的 $.ajaxPrefilter 统一注入，覆盖本方法与 layui table 等所有 $.ajax 请求。
     delete options.success;
     delete options.error;
 
@@ -92,31 +82,33 @@ layui.define(['laytpl', 'layer'], function(exports){
           typeof options.done === 'function' && options.done(res); 
         } 
         
-        //登录状态失效，清除本地 x-66nao-auth-token，并强制跳转到登入页
+        //登录状态失效，清理本地残留 token，并强制跳转到登入页
         else if(res[response.statusName] == statusCode.logout){
           view.exit();
         }
         
         //其它异常
         else {
-          var error = [
+          var errorMsg = [
             '<cite>Error：</cite> ' + (res[response.msgName] || '返回状态码异常')
             ,debug()
           ].join('');
-          view.error(error);
+          view.error(errorMsg);
         }
         
         //只要 http 状态码正常，无论 response 的 code 是否正常都执行 success
         typeof success === 'function' && success(res);
       }
       ,error: function(e, code){
-        var error = [
+        var errorMsg = [
           '请求异常，请重试<br><cite>错误信息：</cite>'+ code 
           ,debug()
         ].join('');
-        view.error(error);
+        view.error(errorMsg);
         
-        typeof error === 'function' && error(res);
+        // 调用方传入的 options.error 回调：上游模板曾误写为未定义的 res，且局部变量会遮蔽该回调，
+        // 导致 HTTP 层失败时抛 ReferenceError / 回调不执行。此处传 XHR 对象 e。
+        typeof error === 'function' && error(e);
       }
     }, options));
   };

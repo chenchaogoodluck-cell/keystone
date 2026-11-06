@@ -16,6 +16,7 @@ import com.keystone.admin.web.ApiPageResult;
 import com.keystone.admin.web.ApiResult;
 import com.keystone.admin.web.ApiResultUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -120,7 +121,7 @@ public class DemoController {
      * 与「动态注册的第二数据源」（localDemo → keystone_demo.sys_demo_tag）。
      */
     @MenuPermission(value = "demo:datasource", name = "多数据源演示")
-    @RequestMapping("/datasource")
+    @GetMapping("/datasource")
     public ApiResult<Map<String, Object>> datasourceDemo() {
         Map<String, Object> result = new HashMap<>(8);
         // 1. 主数据源（master，默认源）：DemoItemService 未标注 @DS，走 primary=master
@@ -139,7 +140,7 @@ public class DemoController {
      * 无需在 Controller 里写任何 if-else / switch。
      */
     @MenuPermission(value = "demo:env", name = "环境策略演示")
-    @RequestMapping("/env")
+    @GetMapping("/env")
     public ApiResult<Map<String, Object>> byEnv(@RequestParam(defaultValue = "1") int env) {
         Map<String, Object> result = new HashMap<>(6);
         result.put("availableEnvs", demoTagStrategyService.availableEnvs()); // 供前端渲染下拉

@@ -23,9 +23,16 @@ layui.define(['laytpl', 'layer', 'element', 'util'], function(exports){
     // 调试模式仅本地开发开启：开启时接口异常提示会显示请求 URL；非本地环境关闭，避免泄露内部路径与参数
     ,debug: /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname)
 
-    //自定义请求字段
+    //仅用于清理旧版本残留在 localStorage 的 token；浏览器端鉴权已改为 HttpOnly Cookie
     ,request: {
-      tokenName: 'x-keystone-auth-token' //自动携带 token 的字段名（如：x-keystone-auth-token）。可设置 false 不携带。
+      tokenName: 'x-keystone-auth-token'
+    }
+
+    //CSRF 双提交：与后端 JwtUtils.CSRF_COOKIE / CSRF_HEADER 保持一致
+    //非 HttpOnly 的 CSRF Cookie 由登录接口下发，lib/index.js 读取其值并回传到同名请求头
+    ,csrf: {
+      cookieName: 'keystone-csrf'
+      ,headerName: 'X-Keystone-Csrf'
     }
     
     //自定义响应字段

@@ -27,7 +27,7 @@ public class GlobalExceptionHandler {
     /* URL 不存在：由 NotFoundApiController 的 /api/** 兜底统一返回 4003（此处不再处理
      * NoHandlerFoundException，避免依赖 throw-exception-if-no-handler-found 开关的不确定性）。 */
 
-    /** 通用异常 */
+    /** 通用异常（未知错误，上报 ERROR，返回统一 5000） */
     @ExceptionHandler(value = Exception.class)
     public <T> ApiResult<T> handleException(HttpServletRequest request, Exception ex) {
         ApiResult<T> result = new ApiResult<>(ErrorCode.SYSTEM_ERROR);
@@ -43,27 +43,28 @@ public class GlobalExceptionHandler {
         return result;
     }
 
-    /** 参数异常（RequestParam 校验 / 参数不合法） */
-    @ExceptionHandler(value = {MethodArgumentNotValidException.class, IllegalArgumentException.class})
-    public <T> ApiResult<T> handleBindException(HttpServletRequest request, Exception ex) {
-        ApiResult<T> result = new ApiResult<>(ErrorCode.PARAM_INVALID_ERROR.code, ex.getMessage());
-        printErrorLog(request, ex);
-        return result;
+    /** @Validated / @Valid 请求体校验失败：优先返回具体字段的校验信息 */
+    @ExceptionHandler(value = MethodArgumentNotValidException.class)
+    public <T> ApiResult<T> handleMethodArgumentNotValid(HttpServletRequest request, MethodArgumentNotValidException ex) {
+        String msg = resolveFieldError(ex.getBindingResult());
+        log.warn("Keystone 参数校验失败 method={}, url={}, msg={}", request.getMethod(), request.getRequestURI(), msg);
+        return new ApiResult<>(ErrorCode.PARAM_INVALID_ERROR.code, msg);
     }
 
-    /** 参数绑定 / 转换异常 */
+    /** 非法参数（如非法枚举值 / 校验断言失败） */
+    @ExceptionHandler(value = IllegalArgumentException.class)
+    public <T> ApiResult<T> handleIllegalArgument(HttpServletRequest request, IllegalArgumentException ex) {
+        String msg = ex.getMessage() != null ? ex.getMessage() : ErrorCode.PARAM_INVALID_ERROR.getMessage();
+        log.warn("Keystone 非法参数 method={}, url={}, msg={}", request.getMethod(), request.getRequestURI(), msg);
+        return new ApiResult<>(ErrorCode.PARAM_INVALID_ERROR.code, msg);
+    }
+
+    /** 参数绑定 / 类型转换异常 */
     @ExceptionHandler(value = BindException.class)
     public <T> ApiResult<T> handleBindException(HttpServletRequest request, BindException ex) {
-        ApiResult<T> result = new ApiResult<>(ErrorCode.PARAM_INVALID_ERROR);
-        printErrorLog(request, ex);
-        BindingResult exceptions = ex.getBindingResult();
-        if (exceptions.hasErrors()) {
-            List<ObjectError> errors = exceptions.getAllErrors();
-            if (!errors.isEmpty() && errors.get(0) instanceof FieldError) {
-                return new ApiResult<>(ErrorCode.PARAM_INVALID_ERROR.code, ((FieldError) errors.get(0)).getDefaultMessage());
-            }
-        }
-        return result;
+        String msg = resolveFieldError(ex.getBindingResult());
+        log.warn("Keystone 参数绑定异常 method={}, url={}, msg={}", request.getMethod(), request.getRequestURI(), msg);
+        return new ApiResult<>(ErrorCode.PARAM_INVALID_ERROR.code, msg);
     }
 
     /** 参数缺失 */
@@ -88,6 +89,19 @@ public class GlobalExceptionHandler {
         ApiResult<T> result = new ApiResult<>(ErrorCode.HTTP_MESSAGE_NOT_READABLE_ERROR);
         printErrorLog(request, ex);
         return result;
+    }
+
+    private String resolveFieldError(BindingResult bindingResult) {
+        if (bindingResult != null && bindingResult.hasErrors()) {
+            List<ObjectError> errors = bindingResult.getAllErrors();
+            if (!errors.isEmpty() && errors.get(0) instanceof FieldError) {
+                String defaultMessage = ((FieldError) errors.get(0)).getDefaultMessage();
+                if (defaultMessage != null) {
+                    return defaultMessage;
+                }
+            }
+        }
+        return ErrorCode.PARAM_INVALID_ERROR.getMessage();
     }
 
     private void printErrorLog(HttpServletRequest request, Exception ex) {

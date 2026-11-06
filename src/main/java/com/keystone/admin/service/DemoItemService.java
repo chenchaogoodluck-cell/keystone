@@ -22,11 +22,19 @@ public class DemoItemService extends ServiceImpl<DemoItemMapper, DemoItem> {
      */
     public List<DemoItem> pageQuery(String name, Integer status, String code) {
         LambdaQueryWrapper<DemoItem> wrapper = new LambdaQueryWrapper<>();
-        wrapper.like(StringUtils.hasText(name), DemoItem::getName, name)
-                .like(StringUtils.hasText(code), DemoItem::getCode, code)
+        // 转义 LIKE 通配符，避免用户输入 %/_ 被当作通配符扩大匹配（依赖 MySQL 默认转义字符 \）
+        wrapper.like(StringUtils.hasText(name), DemoItem::getName, escapeLike(name))
+                .like(StringUtils.hasText(code), DemoItem::getCode, escapeLike(code))
                 .eq(status != null, DemoItem::getStatus, status)
                 .orderByDesc(DemoItem::getId);
         return list(wrapper);
+    }
+
+    private String escapeLike(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     /**

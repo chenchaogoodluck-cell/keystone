@@ -1,0 +1,32 @@
+{
+  "groups": [
+    {
+      "name": "app",
+      "description": "应用级配置（由 @Value 读取，注解处理器无法自动发现，故在此手工补充元数据）"
+    },
+    {
+      "name": "app.jwt",
+      "description": "JWT 登录态与 Cookie 配置"
+    }
+  ],
+  "properties": [
+    {
+      "name": "app.id",
+      "type": "java.lang.String",
+      "description": "应用标识。",
+      "defaultValue": "keystone"
+    },
+    {
+      "name": "app.jwt.secret",
+      "type": "java.lang.String",
+      "description": "JWT 签名密钥，服务器端机密。非 local 环境必须通过环境变量 JWT_SECRET 注入强随机值，未配置则启动 fail-fast。",
+      "defaultValue": ""
+    },
+    {
+      "name": "app.jwt.cookie-secure",
+      "type": "java.lang.Boolean",
+      "description": "是否为登录 token / CSRF Cookie 加 Secure 标志（仅 HTTPS 生效）。生产用环境变量 COOKIE_SECURE 设为 true。",
+      "defaultValue": false
+    }
+  ]
+}

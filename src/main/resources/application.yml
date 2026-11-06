@@ -18,7 +18,7 @@ spring:
     check-template-location: true
     expose-request-attributes: false
     expose-session-attributes: false
-    expose-spring-macro-helper: false
+    expose-spring-macro-helpers: false
     # 模板文件使用 .html 后缀
     suffix: .html
     charset: UTF-8
@@ -42,7 +42,8 @@ app:
   #   未配置时应用启动直接失败（fail-fast），确保不存在公开默认密钥。
   jwt:
     secret: ${JWT_SECRET:}
-    # 登录 token 会写入 HttpOnly Cookie（解决 iframe 弹层等页面跳转无法携带请求头的问题）。
+    # 登录 token 会写入 HttpOnly Cookie（解决 iframe 弹层等页面跳转无法携带请求头的问题），
+    # 浏览器端不再把 token 存 localStorage；同时下发非 HttpOnly 的 CSRF Cookie 供写请求双提交校验。
     # 是否给 Cookie 加 Secure 标志（仅 HTTPS 生效）：生产设 true（环境变量 COOKIE_SECURE），
     # 本地/内网 http 调试保持 false，否则浏览器不会发送 Secure Cookie 导致页面权限失效
     cookie-secure: ${COOKIE_SECURE:false}

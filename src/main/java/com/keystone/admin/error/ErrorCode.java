@@ -34,6 +34,9 @@ public class ErrorCode {
     /** 请求的资源未找到 */
     public static final ErrorCode HTTP_URL_NO_HANDLER_ERROR = new ErrorCode(4003, "请求的资源未找到");
 
+    /** CSRF 双提交校验失败（Cookie 鉴权的写请求缺少/错误的 CSRF token） */
+    public static final ErrorCode CSRF_INVALID_ERROR = new ErrorCode(4004, "请求校验失败，请刷新页面后重试");
+
     /** 未登录或登录失效（与 static/config.js 中 setter.response.statusCode.logout 保持一致） */
     public static final ErrorCode LOGIN_INVALID_ERROR = new ErrorCode(1001, "未登录或登录已过期");
 

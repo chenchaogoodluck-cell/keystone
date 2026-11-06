@@ -25,9 +25,6 @@ import java.util.Map;
 @Slf4j
 public class AuthController {
 
-    /** token Cookie 有效期 30 天（与 createManagementToken 一致） */
-    private static final int TOKEN_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
-
     @Resource
     private AuthService authService;
 
@@ -37,22 +34,23 @@ public class AuthController {
     @PostMapping("/login")
     public ApiResult<Map<String, String>> login(@Validated @RequestBody LoginReqVo reqVo, HttpServletResponse response) {
         Map<String, String> result = authService.login(reqVo);
-        // 登录后把 token 写入 HttpOnly Cookie：iframe 弹层 / 内部跳转等无法携带请求头时由服务端从 Cookie 读取
-        addTokenCookie(response, result.get("token"));
+        // 浏览器端只依赖 Cookie 鉴权：token 不再交给前端保存，避免 XSS 从 localStorage 窃取；
+        // iframe 弹层 / 内部跳转等同源请求也会自动携带该 Cookie。
+        addAuthCookies(response, result.get("token"));
         return ApiResultUtils.buildResult(result);
     }
 
-    private void addTokenCookie(HttpServletResponse response, String token) {
+    private void addAuthCookies(HttpServletResponse response, String token) {
         if (response == null || token == null || token.trim().isEmpty()) {
             return;
         }
-        response.addHeader("Set-Cookie",
-                JwtUtils.TOKEN_COOKIE + "=" + token
-                        + "; Path=/"
-                        + "; Max-Age=" + TOKEN_COOKIE_MAX_AGE_SECONDS
-                        + "; HttpOnly"
-                        + (cookieSecure ? "; Secure" : "")
-                        + "; SameSite=Lax");
-        log.info("Keystone 登录成功，token 已写入 HttpOnly Cookie");
+        String suffix = "; Path=/; Max-Age=" + JwtUtils.TOKEN_MAX_AGE_SECONDS
+                + "; SameSite=Lax" + (cookieSecure ? "; Secure" : "");
+        // 登录 token：HttpOnly，JS 无法读取
+        response.addHeader("Set-Cookie", JwtUtils.TOKEN_COOKIE + "=" + token + suffix + "; HttpOnly");
+        // CSRF token：非 HttpOnly，前端读取后放进自定义请求头；值由 JWT 密钥对当前 token 签名，
+        // 服务端无状态校验（见 BrowserSecurityFilter），补上 Cookie 鉴权下的跨站写请求防护。
+        response.addHeader("Set-Cookie", JwtUtils.buildCsrfCookie(token, cookieSecure));
+        log.info("Keystone 登录成功，已写入 HttpOnly token Cookie 与 CSRF Cookie");
     }
 }

@@ -26,8 +26,11 @@ spring:
         # 监控页必须鉴权：默认值仅供本机演示，部署到任何非本机环境前必须覆盖这两个环境变量
         login-username: ${KEYSTONE_DRUID_USER:keystone}
         login-password: ${KEYSTONE_DRUID_PWD:keystone-local-only}
-        # 仅允许本机回环访问；原 0.0.0.0/0 等于对全网开放，需要远程访问时显式放开
-        allow: ${KEYSTONE_DRUID_ALLOW:127.0.0.1,0:0:0:0:0:0:0:1}
+        # 仅允许本机回环访问；Druid 的 allow/deny 只支持 IPv4 地址或网段（如 192.168.1.0/24），
+        # 不支持 IPv6 字面量（写 0:0:0:0:0:0:0:1 / ::1 会报 Invalid IP Address 并中断白名单解析）。
+        # 因此请用 http://127.0.0.1:9110/druid/index.html 访问，避免 localhost 被解析成 ::1 后被拒；
+        # 需要放开其他来源时用 KEYSTONE_DRUID_ALLOW 注入 IPv4 白名单。
+        allow: ${KEYSTONE_DRUID_ALLOW:127.0.0.1}
         reset-enable: false
         url-pattern: /druid/*
       web-stat-filter:
